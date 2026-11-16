@@ -68,12 +68,19 @@
     border-radius: 999px; padding: 2px 10px; margin: 2px 4px 2px 0; font-size: .85rem; }
   footer { color: var(--muted); font-size: .85rem; margin-top: 28px; }
   footer a { color: var(--accent); }
+  .banner { background: var(--danger); color: var(--bg); border-radius: 10px; padding: 14px 16px;
+    margin-bottom: 18px; font-weight: 600; }
+  .banner a { color: inherit; }
   input[type=file] { font: inherit; max-width: 100%; color: var(--text); }
   section.card.dragging { outline: 2px dashed var(--accent); outline-offset: 3px; background: var(--accent-soft); }
 </style>
 </head>
 <body>
 <main>
+  <div id="notServed" class="banner" hidden>
+    You are looking at a preview of the page file, not the running app, so nothing on this page can work.
+    Open <a href="http://127.0.0.1:8000">http://127.0.0.1:8000</a> in your browser instead.
+  </div>
   <h1>{{APP_NAME}}</h1>
   <p class="lead">Ask questions about your lecture slides and textbooks. Answers come only from the PDFs
     you add, and every answer shows which pages it used so you can check it.</p>
@@ -332,7 +339,12 @@ $("question").addEventListener("keydown", (event) => {
   }
 });
 
-refreshDocs().catch((err) => setStatus($("uploadStatus"), err.message, true));
+// If this file was opened straight from disk (file:, data:) there is no server behind it.
+if (/^https?:$/.test(location.protocol)) {
+  refreshDocs().catch((err) => setStatus($("uploadStatus"), err.message, true));
+} else {
+  $("notServed").hidden = false;
+}
 </script>
 </body>
 </html>
