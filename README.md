@@ -1,7 +1,8 @@
-# NJIT Study Assistant
+# Anthony's Study Assistant
 
-A small retrieval-augmented generation (RAG) app. Feed it lecture slides or textbook PDFs, then ask
+A small retrieval-augmented generation (RAG) app. Add lecture slides or textbook PDFs, then ask
 questions in plain English and get answers grounded in that material, with the page numbers they came from.
+(The name is the `APP_NAME` setting.)
 
 Built with **Python 3.12**, **FastAPI**, **ChromaDB** and the **Gemini API** (embeddings and chat).
 
@@ -49,35 +50,45 @@ and put your key in `.env` (`GEMINI_API_KEY=...`). Make sure the file is really 
 
 ## Usage
 
-Add one or more PDFs:
+Start the server:
+
+```bash
+uvicorn app.main:app
+```
+
+Open <http://127.0.0.1:8000>. The page walks you through two steps:
+
+1. **Add your material.** Click "Add a PDF". Files you've added are listed, and each can be removed.
+2. **Ask a question.** Type it and press Enter. The answer appears with the pages it came from.
+
+You can also add PDFs from the command line (useful for many files at once):
 
 ```bash
 python -m app.ingest "path/to/lecture1.pdf" "path/to/lecture2.pdf"
 ```
 
-Start the server:
+### API (for developers)
 
-```bash
-uvicorn app.main:app --reload
-```
-
-Then open <http://127.0.0.1:8000/docs> for an interactive page, or call it directly:
-
-```bash
-curl -X POST http://127.0.0.1:8000/ask -H "Content-Type: application/json" \
-     -d '{"question": "What does getopt() return for an unknown option?"}'
-```
-
-### API
+Interactive documentation is at <http://127.0.0.1:8000/docs>.
 
 | Method | Path | Purpose |
 |---|---|---|
 | `POST` | `/ask` | Body `{"question": "..."}`. Returns `{"answer": "...", "sources": [{"source": "file.pdf", "page": 4}]}` |
 | `GET` | `/documents` | Files currently stored, with chunk counts |
+| `POST` | `/documents` | Upload a PDF (multipart field `file`). Same name replaces the old copy |
+| `DELETE` | `/documents?source=file.pdf` | Remove a file |
 | `GET` | `/health` | Liveness check and total chunk count |
 
-Errors: `409` nothing ingested yet, `422` invalid question (blank or over 2000 chars), `503` Gemini is
-busy (already retried), `502` any other Gemini failure.
+Errors: `409` nothing added yet, `422` invalid question or a PDF with no readable text, `400` not a
+(readable) PDF, `413` file over `MAX_UPLOAD_MB`, `503` Gemini is busy (already retried), `502` any other
+Gemini failure.
+
+### Security
+
+There is no login. The server listens on `127.0.0.1` (this computer only) by default, which is the
+intended use. Anyone who can reach the server can read your material, upload files and spend your Gemini
+quota, so don't start it with `--host 0.0.0.0` or put it on the internet without adding authentication.
+Uploads are limited to PDFs under `MAX_UPLOAD_MB`, and their file names are reduced to a plain name.
 
 ## Configuration
 
@@ -86,6 +97,8 @@ Set in `.env` or the environment. All optional except the key.
 | Variable | Default | Meaning |
 |---|---|---|
 | `GEMINI_API_KEY` | none (required) | Your Gemini API key |
+| `APP_NAME` | `Anthony's Study Assistant` | Name shown on the page and in the API docs |
+| `MAX_UPLOAD_MB` | `50` | Largest PDF accepted through the web page |
 | `EMBED_MODEL` | `gemini-embedding-001` | Embedding model |
 | `CHAT_MODEL` | `gemini-3.5-flash` | Model that writes answers |
 | `CHROMA_PATH` | `chroma_db` | Where ChromaDB stores data |
@@ -116,8 +129,9 @@ app/
   gemini.py       the only module that calls Gemini (client, retries, error handling)
   store.py        ChromaDB: add, search, list
   rag.py          the question-answering pipeline
-  main.py         FastAPI app
-  ingest.py       command line tool: python -m app.ingest
+  main.py         FastAPI app: web page, upload, ask
+  ingest.py       add PDFs (shared by the web page and the command line)
+  static/         the web page (index.html)
 tests/            pytest suite
 ```
 
@@ -126,7 +140,7 @@ tests/            pytest suite
 - Text only: diagrams and images in slides are not read (a diagram's labels may extract as junk).
   Scanned or image-only PDFs have no text and are rejected at ingest.
 - Single-turn: each question is answered independently; there is no conversation memory.
-- There is no upload endpoint or authentication. It is meant to run locally for one user, not to be
-  exposed to the internet as is.
+- There is no authentication or per-user separation: everything lives in one shared collection. It is
+  meant to run locally for one user (see Security above).
 - Retrieval is purely by meaning. It can miss questions that depend on exact terms or on combining
   many slides. Hybrid search and reranking are natural next steps.

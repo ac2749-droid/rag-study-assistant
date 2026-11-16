@@ -4,4 +4,5 @@ google-genai==3.3.0
 httpx==0.28.1
 pypdf==7.1.0
 python-dotenv==1.2.4
+python-multipart==0.0.33
 uvicorn==0.54.0

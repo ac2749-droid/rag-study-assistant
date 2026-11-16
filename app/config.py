@@ -12,6 +12,8 @@ load_dotenv(PROJECT_ROOT / ".env")
 
 @dataclass(frozen=True)
 class Settings:
+    app_name: str  # shown as the page title and in the API docs
+    max_upload_mb: int  # largest PDF accepted through the web page
     gemini_api_key: str | None
     embed_model: str
     chat_model: str
@@ -27,6 +29,8 @@ class Settings:
 @lru_cache
 def get_settings() -> Settings:
     settings = Settings(
+        app_name=os.getenv("APP_NAME", "Anthony's Study Assistant"),
+        max_upload_mb=int(os.getenv("MAX_UPLOAD_MB", "50")),
         gemini_api_key=os.getenv("GEMINI_API_KEY") or None,
         embed_model=os.getenv("EMBED_MODEL", "gemini-embedding-001"),
         chat_model=os.getenv("CHAT_MODEL", "gemini-3.5-flash"),

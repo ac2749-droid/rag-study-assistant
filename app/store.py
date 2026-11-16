@@ -57,6 +57,14 @@ def search(vector: list[float], k: int) -> list[Hit]:
     ]
 
 
+def delete_source(source: str) -> int:
+    """Remove every chunk stored for one file. Returns how many were removed."""
+    collection = get_collection()
+    before = collection.count()
+    collection.delete(where={"source": source})
+    return before - collection.count()
+
+
 def list_sources() -> dict[str, int]:
     """Map each stored file name to its number of chunks."""
     counts: dict[str, int] = {}

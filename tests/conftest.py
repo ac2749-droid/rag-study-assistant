@@ -17,6 +17,30 @@ def fake_vector(text: str) -> list[float]:
     return [1.0 if k in lowered else 0.0 for k in KEYWORDS] + [0.1]
 
 
+def make_pdf(text: str) -> bytes:
+    """Build a minimal one-page PDF containing `text` (so upload tests need no fixtures on disk)."""
+    stream = f"BT /F1 12 Tf 20 100 Td ({text}) Tj ET".encode()
+    objects = [
+        b"<< /Type /Catalog /Pages 2 0 R >>",
+        b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+        b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 400 200] /Contents 4 0 R"
+        b" /Resources << /Font << /F1 5 0 R >> >> >>",
+        b"<< /Length %d >>\nstream\n" % len(stream) + stream + b"\nendstream",
+        b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+    ]
+    out = bytearray(b"%PDF-1.4\n")
+    offsets = []
+    for number, body in enumerate(objects, start=1):
+        offsets.append(len(out))
+        out += b"%d 0 obj\n" % number + body + b"\nendobj\n"
+    xref_at = len(out)
+    out += b"xref\n0 %d\n0000000000 65535 f \n" % (len(objects) + 1)
+    for offset in offsets:
+        out += b"%010d 00000 n \n" % offset
+    out += b"trailer\n<< /Size %d /Root 1 0 R >>\nstartxref\n%d\n%%%%EOF\n" % (len(objects) + 1, xref_at)
+    return bytes(out)
+
+
 def _clear_caches() -> None:
     config.get_settings.cache_clear()
     store.get_collection.cache_clear()
@@ -27,7 +51,9 @@ def _clear_caches() -> None:
 def isolated_env(tmp_path, monkeypatch):
     monkeypatch.setenv("CHROMA_PATH", str(tmp_path / "chroma"))
     monkeypatch.setenv("GEMINI_API_KEY", "test-key")
-    for name in ("CHUNK_SIZE", "CHUNK_OVERLAP", "PAGE_LIMIT", "TOP_K", "MAX_DISTANCE"):
+    for name in (
+        "CHUNK_SIZE", "CHUNK_OVERLAP", "PAGE_LIMIT", "TOP_K", "MAX_DISTANCE", "APP_NAME", "MAX_UPLOAD_MB",
+    ):
         monkeypatch.delenv(name, raising=False)
     _clear_caches()
     yield

@@ -1,7 +1,11 @@
-"""Command line tool: python -m app.ingest lecture1.pdf [lecture2.pdf ...]"""
+"""Add PDFs to the database. Used by the web upload and by the command line:
+
+    python -m app.ingest lecture1.pdf [lecture2.pdf ...]
+"""
 import argparse
 import logging
 import sys
+from dataclasses import dataclass
 from pathlib import Path
 
 from pypdf.errors import PyPdfError
@@ -13,21 +17,29 @@ from app.gemini import GeminiError
 from app.pdf_loader import load_pdf
 
 
-def ingest_pdf(path: Path) -> int:
-    """Load, chunk, embed and store one PDF. Returns the number of chunks stored."""
+@dataclass(frozen=True)
+class IngestResult:
+    chunks: int  # how many chunks were stored
+    empty_pages: list[int]  # pages with no extractable text (images, diagrams, scans)
+
+
+def ingest_pdf(path: Path, name: str | None = None) -> IngestResult:
+    """Load, chunk, embed and store one PDF under `name` (defaults to the file name).
+
+    Raises ValueError if the PDF has no extractable text at all.
+    """
     settings = get_settings()
+    name = name or path.name
     pages = load_pdf(path)
-    empty = [p.number for p in pages if not p.text]
-    if empty:
-        print(f"  note: no extractable text on page(s) {empty} (images/diagrams are skipped)")
     chunks = chunk_pages(
         pages,
-        path.name,
+        name,
         size=settings.chunk_size,
         overlap=settings.chunk_overlap,
         page_limit=settings.page_limit,
     )
-    return store.add_chunks(chunks, path.name)
+    stored = store.add_chunks(chunks, name)
+    return IngestResult(chunks=stored, empty_pages=[p.number for p in pages if not p.text])
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -40,8 +52,10 @@ def main(argv: list[str] | None = None) -> int:
     for path in args.pdfs:
         print(f"Ingesting {path.name} ...")
         try:
-            n = ingest_pdf(path)
-            print(f"  stored {n} chunks")
+            result = ingest_pdf(path)
+            if result.empty_pages:
+                print(f"  note: no text on page(s) {result.empty_pages} (images/diagrams are skipped)")
+            print(f"  stored {result.chunks} chunks")
         except (OSError, PyPdfError, ValueError, GeminiError) as exc:
             failures += 1
             print(f"  FAILED: {exc}", file=sys.stderr)

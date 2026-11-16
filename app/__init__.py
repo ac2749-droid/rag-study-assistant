@@ -1,1 +1,1 @@
-"""NJIT study assistant: a small RAG app over lecture slides and textbooks."""
+"""A small study assistant: a RAG app over lecture slides and textbooks."""
