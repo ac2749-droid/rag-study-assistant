@@ -11,7 +11,7 @@ from pypdf.errors import PyPdfError
 
 from app import rag, store
 from app.config import get_settings
-from app.gemini import GeminiBusyError, GeminiError
+from app.gemini import GeminiBusyError, GeminiError, GeminiQuotaError
 from app.ingest import ingest_pdf
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
@@ -19,6 +19,11 @@ log = logging.getLogger(__name__)
 
 INDEX_PATH = Path(__file__).parent / "static" / "index.html"
 UPLOAD_READ_SIZE = 1024 * 1024
+BUSY_MESSAGE = "The AI service is overloaded right now. Please try again in a minute."
+QUOTA_MESSAGE = (
+    "The AI service's usage limit was reached (too many requests too quickly, or today's free quota "
+    "is used up). Wait a minute and try again. If it keeps happening, check your Gemini plan limits."
+)
 
 app = FastAPI(
     title=get_settings().app_name,
@@ -126,8 +131,10 @@ def upload_document(file: UploadFile) -> UploadResponse:
             raise HTTPException(
                 422, "No text could be read from that PDF. Scanned pages (pictures of text) aren't supported."
             ) from None
+        except GeminiQuotaError:
+            raise HTTPException(429, QUOTA_MESSAGE) from None
         except GeminiBusyError:
-            raise HTTPException(503, "The language model is busy right now. Try again in a minute.") from None
+            raise HTTPException(503, BUSY_MESSAGE) from None
         except GeminiError:
             log.exception("Gemini request failed during upload")
             raise HTTPException(502, "The language model request failed. Check the server logs.") from None
@@ -156,8 +163,10 @@ def ask(body: AskRequest) -> AskResponse:
         result = rag.answer_question(body.question, history)
     except rag.NoMaterialError:
         raise HTTPException(409, "No material yet. Add a PDF first.") from None
+    except GeminiQuotaError:
+        raise HTTPException(429, QUOTA_MESSAGE) from None
     except GeminiBusyError:
-        raise HTTPException(503, "The language model is busy right now. Try again in a minute.") from None
+        raise HTTPException(503, BUSY_MESSAGE) from None
     except GeminiError:
         log.exception("Gemini request failed")
         raise HTTPException(502, "The language model request failed. Check the server logs.") from None

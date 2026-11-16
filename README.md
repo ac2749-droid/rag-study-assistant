@@ -97,8 +97,8 @@ Interactive documentation is at <http://127.0.0.1:8000/docs>.
 | `GET` | `/health` | Liveness check and total chunk count |
 
 Errors: `409` nothing added yet, `422` invalid question or a PDF with no readable text, `400` not a
-(readable) PDF, `413` file over `MAX_UPLOAD_MB`, `503` Gemini is busy (already retried), `502` any other
-Gemini failure.
+(readable) PDF, `413` file over `MAX_UPLOAD_MB`, `429` Gemini's rate limit or quota was reached, `503`
+Gemini is overloaded (both already retried), `502` any other Gemini failure.
 
 ### Security
 
@@ -126,14 +126,23 @@ Set in `.env` or the environment. All optional except the key.
 | `GEMINI_API_KEY` | none (required) | Your Gemini API key |
 | `APP_NAME` | `Anthony's Study Assistant` | Name shown on the page and in the API docs |
 | `MAX_UPLOAD_MB` | `50` | Largest PDF accepted through the web page |
+| `GEMINI_TIMEOUT_SECONDS` | `45` | How long to wait for any single Gemini request before giving up on it (a stalled model then triggers the fallback) |
 | `EMBED_MODEL` | `gemini-embedding-001` | Embedding model |
 | `CHAT_MODEL` | `gemini-3.5-flash` | Model that writes answers |
+| `CHAT_FALLBACK_MODELS` | `gemini-3.8-flash,gemini-3.1-flash-lite` | Comma-separated backups tried in order when the main model is rate-limited or overloaded (empty = none) |
 | `CHROMA_PATH` | `chroma_db` | Where ChromaDB stores data |
 | `CHUNK_SIZE` / `CHUNK_OVERLAP` | `800` / `100` | Size and overlap when a long page is split |
 | `PAGE_LIMIT` | `1200` | Pages up to this length stay one chunk |
 | `PER_SOURCE_K` | `2` | Chunks taken from each document, so every document is heard |
 | `TOP_K` | `8` | Most chunks sent to the model in total, after the relevance cutoff |
 | `MAX_DISTANCE` | `0.38` | Relevance cutoff (cosine distance, lower = closer) |
+
+**Usage limits (HTTP 429).** Gemini's free plan limits requests per minute and per day, and the limits are
+counted per model. If the main chat model is limited or overloaded, the app tries each fallback model
+before giving up, and if Google says to wait more than 30 seconds it stops waiting at once. If every model
+is limited you'll see "The AI service's usage limit was reached". Wait a minute, or check your plan at
+<https://aistudio.google.com>. Embeddings (used when adding documents and when searching) have no
+fallback, because vectors from different embedding models can't be compared.
 
 **Tuning `MAX_DISTANCE`.** The default was measured on one 11-slide C deck: on-topic questions had their
 best chunk at 0.20 to 0.25 and off-topic ones at 0.43 or more. A larger or more uniform corpus may need

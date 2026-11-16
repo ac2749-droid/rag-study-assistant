@@ -43,9 +43,9 @@ def make_pdf(text: str) -> bytes:
 
 
 def _clear_caches() -> None:
-    config.get_settings.cache_clear()
-    store.get_collection.cache_clear()
-    gemini.get_client.cache_clear()
+    # A test may have replaced one of these with a plain stand-in function (no cache to clear).
+    for function in (config.get_settings, store.get_collection, gemini.get_client):
+        getattr(function, "cache_clear", lambda: None)()
 
 
 @pytest.fixture(autouse=True)
@@ -54,7 +54,7 @@ def isolated_env(tmp_path, monkeypatch):
     monkeypatch.setenv("GEMINI_API_KEY", "test-key")
     for name in (
         "CHUNK_SIZE", "CHUNK_OVERLAP", "PAGE_LIMIT", "TOP_K", "PER_SOURCE_K", "MAX_DISTANCE", "APP_NAME",
-        "MAX_UPLOAD_MB",
+        "MAX_UPLOAD_MB", "CHAT_MODEL", "CHAT_FALLBACK_MODELS", "GEMINI_TIMEOUT_SECONDS",
     ):
         monkeypatch.delenv(name, raising=False)
     _clear_caches()

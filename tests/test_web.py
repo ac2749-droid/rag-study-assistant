@@ -108,6 +108,16 @@ def test_upload_when_gemini_busy_is_503(client, monkeypatch):
     assert upload(client, make_pdf("getopt")).status_code == 503
 
 
+def test_upload_when_gemini_is_rate_limited_is_429(client, monkeypatch):
+    def limited(texts, task_type):
+        raise gemini.GeminiQuotaError("limit")
+
+    monkeypatch.setattr(gemini, "embed_texts", limited)
+    r = upload(client, make_pdf("getopt"))
+    assert r.status_code == 429 and "usage limit" in r.json()["detail"]
+    assert store.get_collection().count() == 0  # nothing half-stored
+
+
 def test_delete_document(client, loaded_store):
     r = client.delete("/documents", params={"source": "deck.pdf"})
     assert r.status_code == 200 and r.json() == {"removed_chunks": 3}

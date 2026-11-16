@@ -107,6 +107,16 @@ def test_busy_gemini_becomes_503(client, loaded_store, monkeypatch):
     assert client.post("/ask", json={"question": "getopt?"}).status_code == 503
 
 
+def test_rate_limited_gemini_becomes_429_with_a_plain_message(client, loaded_store, monkeypatch):
+    def limited(prompt):
+        raise gemini.GeminiQuotaError("limit")
+
+    monkeypatch.setattr(gemini, "generate", limited)
+    r = client.post("/ask", json={"question": "getopt?"})
+    assert r.status_code == 429
+    assert "usage limit" in r.json()["detail"]
+
+
 def test_gemini_failure_becomes_502_without_leaking_details(client, loaded_store, monkeypatch):
     def broken(prompt):
         raise gemini.GeminiError("Gemini API error 404: secret internal detail")
