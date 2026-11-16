@@ -17,16 +17,17 @@ from app.ingest import ingest_pdf
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 log = logging.getLogger(__name__)
 
-INDEX_HTML = (Path(__file__).parent / "static" / "index.html").read_text(encoding="utf-8")
+INDEX_PATH = Path(__file__).parent / "static" / "index.html"
 UPLOAD_READ_SIZE = 1024 * 1024
 
 app = FastAPI(
     title=get_settings().app_name,
     description=(
-        "JSON API behind the web page at `/`. Most people should use that page; "
-        "this documentation is for developers."
+        "Ask questions about your own documents (lecture slides, textbooks, manuals, handbooks, "
+        "policies) and get answers with page references. This is the JSON API behind the web page "
+        "at `/`; most people should use that page."
     ),
-    version="0.2.0",
+    version="0.3.0",
 )
 
 
@@ -64,6 +65,12 @@ class AskResponse(BaseModel):
     sources: list[SourceOut]
 
 
+class DocumentOut(BaseModel):
+    source: str
+    chunks: int  # searchable sections the file was split into
+    pages: int  # pages that contain readable text
+
+
 class UploadResponse(BaseModel):
     source: str
     chunks: int
@@ -72,7 +79,9 @@ class UploadResponse(BaseModel):
 
 @app.get("/", response_class=HTMLResponse, include_in_schema=False)
 def home() -> str:
-    return INDEX_HTML.replace("{{APP_NAME}}", html.escape(get_settings().app_name))
+    # Read on each visit: the file is tiny, and edits to the page show up without a restart.
+    page = INDEX_PATH.read_text(encoding="utf-8")
+    return page.replace("{{APP_NAME}}", html.escape(get_settings().app_name))
 
 
 @app.get("/health")
@@ -80,10 +89,10 @@ def health() -> dict:
     return {"status": "ok", "chunks": store.get_collection().count()}
 
 
-@app.get("/documents")
-def documents() -> dict[str, int]:
-    """Files currently stored, with their chunk counts."""
-    return store.list_sources()
+@app.get("/documents", response_model=list[DocumentOut])
+def documents() -> list[DocumentOut]:
+    """Files currently stored, sorted by name."""
+    return [DocumentOut(**d) for d in store.list_documents()]
 
 
 @app.post("/documents", response_model=UploadResponse)
@@ -123,6 +132,12 @@ def upload_document(file: UploadFile) -> UploadResponse:
             log.exception("Gemini request failed during upload")
             raise HTTPException(502, "The language model request failed. Check the server logs.") from None
     return UploadResponse(source=name, chunks=result.chunks, empty_pages=result.empty_pages)
+
+
+@app.delete("/documents/all")
+def delete_all_documents() -> dict[str, int]:
+    """Remove every stored file."""
+    return {"removed_chunks": store.delete_all()}
 
 
 @app.delete("/documents")

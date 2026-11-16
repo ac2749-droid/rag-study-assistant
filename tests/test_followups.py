@@ -15,7 +15,7 @@ def client():
 
 
 def is_rewrite(prompt: str) -> bool:
-    return prompt.startswith("Rewrite the student's latest message")
+    return prompt.startswith("Rewrite the user's latest message")
 
 
 def test_first_question_costs_no_extra_llm_call(client, loaded_store, fake_gemini):
@@ -33,7 +33,7 @@ def test_follow_up_is_rewritten_and_the_rewrite_is_what_gets_searched(client, lo
     assert fake_gemini["embedded"][-1] == ("RETRIEVAL_QUERY", [REWRITTEN_QUESTION])
     # and it found the getopt slides, which "explain that more" alone could never match
     assert {s["page"] for s in r.json()["sources"]} == {3, 4}
-    # the final answer prompt carries the conversation and the student's own words
+    # the final answer prompt carries the conversation and the user's own words
     assert "What does getopt return?" in answer and "QUESTION: explain that more" in answer
     assert "<conversation>" in answer
 

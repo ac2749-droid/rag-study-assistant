@@ -6,6 +6,7 @@ from fastapi.testclient import TestClient
 from pypdf import PdfWriter
 
 from app import gemini, store
+from app.chunking import Chunk
 from app.main import app
 from tests.conftest import make_pdf
 
@@ -33,7 +34,7 @@ def test_home_page_shows_default_name(client):
     assert r.headers["content-type"].startswith("text/html")
     # The apostrophe is HTML-escaped (&#x27;); browsers display it as a normal '.
     assert "<title>Anthony&#x27;s Study Assistant</title>" in r.text
-    assert "<h1>Anthony&#x27;s Study Assistant</h1>" in r.text
+    assert '<h1 class="brand-name">Anthony&#x27;s Study Assistant</h1>' in r.text
     assert "{{APP_NAME}}" not in r.text
 
 
@@ -51,7 +52,7 @@ def test_upload_valid_pdf_stores_it(client, fake_gemini):
     r = upload(client, make_pdf("getopt parses options"), "lecture 1.pdf")
     assert r.status_code == 200, r.text
     assert r.json() == {"source": "lecture 1.pdf", "chunks": 1, "empty_pages": []}
-    assert client.get("/documents").json() == {"lecture 1.pdf": 1}
+    assert client.get("/documents").json() == [{"source": "lecture 1.pdf", "chunks": 1, "pages": 1}]
     assert fake_gemini["embedded"][0][0] == "RETRIEVAL_DOCUMENT"
 
 
@@ -110,7 +111,37 @@ def test_upload_when_gemini_busy_is_503(client, monkeypatch):
 def test_delete_document(client, loaded_store):
     r = client.delete("/documents", params={"source": "deck.pdf"})
     assert r.status_code == 200 and r.json() == {"removed_chunks": 3}
-    assert client.get("/documents").json() == {}
+    assert client.get("/documents").json() == []
+
+
+def test_delete_one_document_leaves_the_others(client, loaded_store):
+    store.add_chunks([Chunk("other.pdf", 1, 0, "strtok splits strings")], "other.pdf")
+    client.delete("/documents", params={"source": "deck.pdf"})
+    assert [d["source"] for d in client.get("/documents").json()] == ["other.pdf"]
+
+
+def test_delete_all_documents(client, loaded_store):
+    store.add_chunks([Chunk("other.pdf", 1, 0, "strtok splits strings")], "other.pdf")
+    r = client.delete("/documents/all")
+    assert r.status_code == 200 and r.json() == {"removed_chunks": 4}
+    assert client.get("/documents").json() == []
+    assert client.get("/health").json()["chunks"] == 0
+
+
+def test_delete_all_on_empty_database_is_fine(client, fake_gemini):
+    r = client.delete("/documents/all")
+    assert r.status_code == 200 and r.json() == {"removed_chunks": 0}
+
+
+def test_asking_after_removing_everything_is_409(client, loaded_store, fake_gemini):
+    client.delete("/documents/all")
+    assert client.post("/ask", json={"question": "getopt?"}).status_code == 409
+
+
+def test_delete_all_handles_more_chunks_than_one_batch(client, fake_gemini):
+    chunks = [Chunk("big.pdf", i, 0, f"getopt chunk {i}") for i in range(1, 1201)]
+    store.add_chunks(chunks, "big.pdf")
+    assert client.delete("/documents/all").json() == {"removed_chunks": 1200}
 
 
 def test_delete_unknown_document_is_404(client, loaded_store):

@@ -16,8 +16,25 @@ def test_health_reports_chunk_count(client, loaded_store):
     assert client.get("/health").json() == {"status": "ok", "chunks": 3}
 
 
-def test_documents_lists_sources(client, loaded_store):
-    assert client.get("/documents").json() == {"deck.pdf": 3}
+def test_documents_lists_files_with_chunk_and_page_counts(client, loaded_store):
+    # loaded_store has chunks on pages 3, 4 and 6 of deck.pdf
+    assert client.get("/documents").json() == [{"source": "deck.pdf", "chunks": 3, "pages": 3}]
+
+
+def test_documents_are_sorted_by_name_ignoring_case(client, fake_gemini):
+    for name in ("b.pdf", "A.pdf", "c.pdf"):
+        store.add_chunks([Chunk(name, 1, 0, "getopt text")], name)
+    assert [d["source"] for d in client.get("/documents").json()] == ["A.pdf", "b.pdf", "c.pdf"]
+
+
+def test_pages_counts_distinct_pages_not_chunks(client, fake_gemini):
+    chunks = [
+        Chunk("long.pdf", 1, 0, "getopt a"),
+        Chunk("long.pdf", 1, 1, "getopt b"),  # a second chunk on the same page
+        Chunk("long.pdf", 2, 0, "getopt c"),
+    ]
+    store.add_chunks(chunks, "long.pdf")
+    assert client.get("/documents").json() == [{"source": "long.pdf", "chunks": 3, "pages": 2}]
 
 
 def test_ask_returns_answer_with_deduplicated_sources(client, loaded_store, fake_gemini):
@@ -103,7 +120,7 @@ def test_gemini_failure_becomes_502_without_leaking_details(client, loaded_store
 def test_reingesting_a_file_replaces_its_old_chunks(loaded_store):
     store.add_chunks([Chunk("deck.pdf", 1, 0, "strtok splits strings.")], "deck.pdf")
     assert store.get_collection().count() == 1
-    assert store.list_sources() == {"deck.pdf": 1}
+    assert store.list_sources() == {"deck.pdf": 1}  # replaced, not added to
 
 
 def test_ingest_failure_keeps_existing_data(loaded_store, monkeypatch):

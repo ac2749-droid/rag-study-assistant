@@ -73,7 +73,7 @@ def fake_gemini(monkeypatch):
 
     def generate(prompt):
         calls["prompts"].append(prompt)
-        if prompt.startswith("Rewrite the student's latest message"):
+        if prompt.startswith("Rewrite the user's latest message"):
             return REWRITTEN_QUESTION  # what the "follow-up rewriter" would produce
         return "FAKE ANSWER"
 

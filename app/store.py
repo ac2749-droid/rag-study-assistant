@@ -70,6 +70,16 @@ def search(vector: list[float], per_source_k: int) -> list[Hit]:
     return sorted(hits, key=lambda h: h.distance)
 
 
+def delete_all() -> int:
+    """Remove everything that has been stored. Returns how many chunks were removed."""
+    collection = get_collection()
+    ids = collection.get(include=[])["ids"]
+    for start in range(0, len(ids), 1000):  # stay well under ChromaDB's per-call limit
+        collection.delete(ids=ids[start : start + 1000])
+    log.info("Removed all %d chunks", len(ids))
+    return len(ids)
+
+
 def delete_source(source: str) -> int:
     """Remove every chunk stored for one file. Returns how many were removed."""
     collection = get_collection()
@@ -78,9 +88,19 @@ def delete_source(source: str) -> int:
     return before - collection.count()
 
 
+def list_documents() -> list[dict]:
+    """One entry per stored file, sorted by name: its chunk count and how many pages have text."""
+    docs: dict[str, dict] = {}
+    for meta in get_collection().get(include=["metadatas"])["metadatas"]:
+        doc = docs.setdefault(meta["source"], {"source": meta["source"], "chunks": 0, "pages": set()})
+        doc["chunks"] += 1
+        doc["pages"].add(meta["page"])
+    return sorted(
+        ({"source": d["source"], "chunks": d["chunks"], "pages": len(d["pages"])} for d in docs.values()),
+        key=lambda d: d["source"].lower(),
+    )
+
+
 def list_sources() -> dict[str, int]:
     """Map each stored file name to its number of chunks."""
-    counts: dict[str, int] = {}
-    for meta in get_collection().get(include=["metadatas"])["metadatas"]:
-        counts[meta["source"]] = counts.get(meta["source"], 0) + 1
-    return counts
+    return {d["source"]: d["chunks"] for d in list_documents()}

@@ -1,8 +1,17 @@
 # Anthony's Study Assistant
 
-A small retrieval-augmented generation (RAG) app. Add lecture slides or textbook PDFs, then ask
-questions in plain English and get answers grounded in that material, with the page numbers they came from.
-(The name is the `APP_NAME` setting.)
+Ask questions about your own documents in plain English and get answers with the pages they came from.
+It runs on your own computer, for two kinds of use:
+
+| | Studying | Work |
+|---|---|---|
+| **Add** | Lecture slides, textbooks, notes | Product manuals, employee handbooks, policies, procedures |
+| **Ask** | "Summarize the key ideas." "What does `**ptr` mean?" | "How do I clear a paper jam?" "How much notice do I need for vacation?" |
+| **Get** | An answer grounded in your slides, with page numbers | An answer from the right manual or policy, with page numbers |
+
+You can load several documents at once, and one question can draw on all of them (each point in the answer
+names its source file). Follow-up questions work. The name shown on the page is the `APP_NAME` setting, so
+it can be renamed for your team or organisation.
 
 Built with **Python 3.12**, **FastAPI**, **ChromaDB** and the **Gemini API** (embeddings and chat).
 
@@ -60,10 +69,13 @@ Start the server:
 uvicorn app.main:app
 ```
 
-Open <http://127.0.0.1:8000>. The page walks you through two steps:
+Open <http://127.0.0.1:8000>. The page has your documents on the left and the conversation on the right:
 
-1. **Add your material.** Click "Add a PDF". Files you've added are listed, and each can be removed.
-2. **Ask a question.** Type it and press Enter. The answer appears with the pages it came from.
+1. **Add documents.** Click "Add documents" (or drag PDFs onto the page). Each file is listed with its page
+   count. Use the trash icon to remove one file, or "Remove all documents" to clear the library. Removing
+   asks for confirmation inside the page.
+2. **Ask a question.** Type it and press Enter, or click an example. The answer appears with the pages it
+   came from, and you can ask follow-ups. "New chat" starts over.
 
 You can also add PDFs from the command line (useful for many files at once):
 
@@ -78,9 +90,10 @@ Interactive documentation is at <http://127.0.0.1:8000/docs>.
 | Method | Path | Purpose |
 |---|---|---|
 | `POST` | `/ask` | Body `{"question": "...", "history": [{"question": "...", "answer": "..."}]}` (`history` is optional, up to 20 earlier exchanges, oldest first). Returns `{"answer": "...", "sources": [{"source": "file.pdf", "page": 4}]}` |
-| `GET` | `/documents` | Files currently stored, with chunk counts |
+| `GET` | `/documents` | Files currently stored, sorted by name: `[{"source": "file.pdf", "chunks": 20, "pages": 20}]` (`pages` counts pages that contain readable text) |
 | `POST` | `/documents` | Upload a PDF (multipart field `file`). Same name replaces the old copy |
-| `DELETE` | `/documents?source=file.pdf` | Remove a file |
+| `DELETE` | `/documents?source=file.pdf` | Remove one file |
+| `DELETE` | `/documents/all` | Remove every file |
 | `GET` | `/health` | Liveness check and total chunk count |
 
 Errors: `409` nothing added yet, `422` invalid question or a PDF with no readable text, `400` not a
@@ -93,6 +106,16 @@ There is no login. The server listens on `127.0.0.1` (this computer only) by def
 intended use. Anyone who can reach the server can read your material, upload files and spend your Gemini
 quota, so don't start it with `--host 0.0.0.0` or put it on the internet without adding authentication.
 Uploads are limited to PDFs under `MAX_UPLOAD_MB`, and their file names are reduced to a plain name.
+
+### Data and privacy
+
+- Your PDFs and their searchable text are stored **on the computer running the app** (in `chroma_db/`).
+- To work, the app sends text to **Google's Gemini API**: each section of a document when it is added (to
+  create its search embedding), and the relevant excerpts plus your question whenever you ask something.
+  Check that your organisation's policies allow this before adding confidential documents, and read Google's
+  terms for the Gemini API tier you use (free and paid tiers handle data differently).
+- Removing a document deletes its stored text and embeddings from this computer. It cannot recall text
+  that was already sent to Gemini.
 
 ## Configuration
 
@@ -146,7 +169,9 @@ tests/            pytest suite
   Scanned or image-only PDFs have no text and are rejected at ingest.
 - Short memory: follow-ups work because the page sends the last 6 exchanges, but nothing is saved
   between visits, and very old turns are forgotten. "New chat" wipes the memory.
-- There is no authentication or per-user separation: everything lives in one shared collection. It is
-  meant to run locally for one user (see Security above).
+- It is built for one person or a small trusted group on one machine. There is no login, no separate
+  workspaces per team, and no audit trail: everyone who can open the page sees every document. Shared use
+  across an organisation would need those added (plus hosting, HTTPS and backups) before it is exposed
+  beyond a trusted network.
 - Retrieval is purely by meaning. It can miss questions that depend on exact terms or on combining
   many slides. Hybrid search and reranking are natural next steps.
