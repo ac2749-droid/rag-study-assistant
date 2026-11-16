@@ -63,13 +63,18 @@ and put your key in `.env` (`GEMINI_API_KEY=...`). Make sure the file is really 
 
 ## Usage
 
-Start the server:
+**Windows:** double-click **`Launch Study Assistant.bat`**. It starts the app and opens your browser at
+<http://127.0.0.1:8000>. Keep its window open while you use the app, and close the window to stop it. If
+something isn't set up yet (the `.venv` folder or the `.env` file), it says so in plain language. For a
+desktop shortcut, right-click the file and choose Send to, then Desktop (create shortcut).
+
+**Any system:** start the server yourself, then open <http://127.0.0.1:8000>:
 
 ```bash
 uvicorn app.main:app
 ```
 
-Open <http://127.0.0.1:8000>. The page has your documents on the left and the conversation on the right:
+The page has your documents on the left and the conversation on the right:
 
 1. **Add documents.** Click "Add documents" (or drag PDFs onto the page). Each file is listed with its page
    count. Use the trash icon to remove one file, or "Remove all documents" to clear the library. Removing
@@ -170,6 +175,7 @@ app/
   ingest.py       add PDFs (shared by the web page and the command line)
   static/         the web page (index.html)
 tests/            pytest suite
+Launch Study Assistant.bat   Windows double-click launcher
 ```
 
 ## Known limitations
