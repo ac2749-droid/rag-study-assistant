@@ -46,15 +46,28 @@ def add_chunks(chunks: list[Chunk], source: str) -> int:
     return len(chunks)
 
 
-def search(vector: list[float], k: int) -> list[Hit]:
-    """Return the k stored chunks closest in meaning to `vector`, closest first."""
-    result = get_collection().query(query_embeddings=[vector], n_results=k)
-    return [
-        Hit(text=doc, source=meta["source"], page=meta["page"], distance=dist)
-        for doc, meta, dist in zip(
-            result["documents"][0], result["metadatas"][0], result["distances"][0], strict=True
+def search(vector: list[float], per_source_k: int) -> list[Hit]:
+    """Return the closest chunks to `vector` from EACH stored file, closest first overall.
+
+    Searching every file separately (rather than taking the global top few) means a broad
+    question like "what is this about?" hears from all documents instead of just whichever
+    one happens to have the single closest passages.
+    """
+    collection = get_collection()
+    hits: list[Hit] = []
+    for source, n_chunks in list_sources().items():
+        result = collection.query(
+            query_embeddings=[vector],
+            n_results=min(per_source_k, n_chunks),
+            where={"source": source},
         )
-    ]
+        hits.extend(
+            Hit(text=doc, source=meta["source"], page=meta["page"], distance=dist)
+            for doc, meta, dist in zip(
+                result["documents"][0], result["metadatas"][0], result["distances"][0], strict=True
+            )
+        )
+    return sorted(hits, key=lambda h: h.distance)
 
 
 def delete_source(source: str) -> int:

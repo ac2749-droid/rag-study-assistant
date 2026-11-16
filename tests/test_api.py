@@ -33,6 +33,28 @@ def test_ask_returns_answer_with_deduplicated_sources(client, loaded_store, fake
     assert "getopt return values" in prompt and "What does getopt return?" in prompt
 
 
+def test_every_document_is_searched_not_just_the_closest_one(client, fake_gemini, monkeypatch):
+    """A broad question must hear from all documents, even if one has many closer passages."""
+    from app import config
+
+    monkeypatch.setenv("PER_SOURCE_K", "1")
+    config.get_settings.cache_clear()
+    store.add_chunks(
+        [Chunk("big.pdf", p, 0, f"getopt details part {p}") for p in (1, 2, 3, 4)], "big.pdf"
+    )
+    store.add_chunks([Chunk("small.pdf", 1, 0, "getopt in one line")], "small.pdf")
+
+    body = client.post("/ask", json={"question": "getopt overview"}).json()
+    assert {s["source"] for s in body["sources"]} == {"big.pdf", "small.pdf"}
+    # one passage per document, not four from big.pdf
+    assert len(body["sources"]) == 2
+
+
+def test_prompt_labels_each_excerpt_with_file_and_page(client, loaded_store, fake_gemini):
+    client.post("/ask", json={"question": "getopt?"})
+    assert "[deck.pdf, page 3]" in fake_gemini["prompts"][0]
+
+
 def test_question_is_embedded_as_a_query(client, loaded_store, fake_gemini):
     client.post("/ask", json={"question": "getopt?"})
     assert fake_gemini["embedded"][-1][0] == "RETRIEVAL_QUERY"

@@ -7,122 +7,181 @@
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%93%9A%3C/text%3E%3C/svg%3E">
 <style>
   :root {
-    --bg: #f6f7f9; --card: #ffffff; --text: #1d2330; --muted: #5d667a; --border: #dfe3ea;
+    --bg: #f5f6f8; --card: #ffffff; --text: #1b2130; --muted: #5f687b; --border: #dde1e8;
     --accent: #2f5bd8; --accent-text: #ffffff; --accent-soft: #e8eefc; --danger: #b3261e;
-    --code-bg: #f0f2f6;
+    --danger-soft: #fdecea; --code-bg: #eef0f5; --shadow: 0 1px 2px rgba(20, 30, 60, .06);
   }
   @media (prefers-color-scheme: dark) {
     :root {
-      --bg: #14171d; --card: #1c2029; --text: #e7eaf0; --muted: #9aa3b5; --border: #2c3240;
-      --accent: #6b8cf0; --accent-text: #10131a; --accent-soft: #232b45; --danger: #f2877f;
-      --code-bg: #12151b;
+      --bg: #13161c; --card: #1b1f28; --text: #e7eaf0; --muted: #9aa3b5; --border: #2b3140;
+      --accent: #6b8cf0; --accent-text: #0f1219; --accent-soft: #232b45; --danger: #f2877f;
+      --danger-soft: #3a2220; --code-bg: #12151b; --shadow: none;
     }
   }
   * { box-sizing: border-box; }
+  html { scroll-padding-bottom: 140px; }
   body {
     margin: 0; background: var(--bg); color: var(--text);
     font: 16px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   }
-  main { max-width: 760px; margin: 0 auto; padding: 32px 16px 64px; }
-  h1 { font-size: 1.9rem; margin: 0 0 6px; }
-  .lead { color: var(--muted); margin: 0 0 24px; }
-  section.card {
-    background: var(--card); border: 1px solid var(--border); border-radius: 12px;
-    padding: 20px; margin-bottom: 18px;
-  }
-  h2 { font-size: 1.05rem; margin: 0 0 4px; }
-  .step { display: inline-block; background: var(--accent-soft); color: var(--accent);
-    border-radius: 999px; width: 1.6em; height: 1.6em; line-height: 1.6em; text-align: center;
-    font-size: .9rem; margin-right: 8px; font-weight: 600; }
-  .hint { color: var(--muted); font-size: .9rem; margin: 4px 0 12px; }
-  button, .btn {
-    font: inherit; cursor: pointer; border-radius: 8px; border: 1px solid var(--border);
-    background: var(--card); color: var(--text); padding: 8px 14px;
-  }
-  button.primary, .btn.primary { background: var(--accent); color: var(--accent-text); border-color: var(--accent); font-weight: 600; }
-  button:disabled { opacity: .5; cursor: not-allowed; }
-  button:focus-visible, .btn:focus-within, textarea:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
-  ul.docs { list-style: none; margin: 0 0 12px; padding: 0; }
-  ul.docs li { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--border); }
-  ul.docs li:last-child { border-bottom: 0; }
-  ul.docs .name { flex: 1; overflow-wrap: anywhere; }
-  ul.docs .count { color: var(--muted); font-size: .85rem; white-space: nowrap; }
-  ul.docs button { padding: 4px 10px; font-size: .85rem; color: var(--danger); }
-  .empty { color: var(--muted); margin: 0 0 12px; }
-  textarea {
-    width: 100%; min-height: 84px; resize: vertical; font: inherit; padding: 10px 12px;
-    border-radius: 8px; border: 1px solid var(--border); background: var(--bg); color: var(--text);
-  }
-  .row { display: flex; align-items: center; gap: 12px; margin-top: 10px; flex-wrap: wrap; }
-  .status { color: var(--muted); font-size: .9rem; }
-  .status.error { color: var(--danger); }
-  #result { display: none; }
-  #answer { overflow-wrap: anywhere; white-space: pre-wrap; }
-  #answer pre { background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px;
-    padding: 12px; overflow-x: auto; white-space: pre; font-size: .9rem; }
-  #answer code { background: var(--code-bg); padding: 1px 5px; border-radius: 4px;
-    font-family: ui-monospace, "Cascadia Code", Consolas, monospace; font-size: .92em; }
-  #answer pre code { background: none; padding: 0; }
-  .sources { margin-top: 14px; font-size: .9rem; color: var(--muted); }
-  .chip { display: inline-block; background: var(--accent-soft); color: var(--accent);
-    border-radius: 999px; padding: 2px 10px; margin: 2px 4px 2px 0; font-size: .85rem; }
-  footer { color: var(--muted); font-size: .85rem; margin-top: 28px; }
-  footer a { color: var(--accent); }
+  .app { max-width: 820px; margin: 0 auto; padding: 24px 16px 12px; min-height: 100vh;
+    display: flex; flex-direction: column; }
+
+  /* header */
+  .top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 18px; }
+  h1 { font-size: 1.6rem; line-height: 1.2; margin: 0 0 4px; }
+  .tag { color: var(--muted); margin: 0; font-size: .95rem; }
   .banner { background: var(--danger); color: var(--bg); border-radius: 10px; padding: 14px 16px;
     margin-bottom: 18px; font-weight: 600; }
   .banner a { color: inherit; }
-  input[type=file] { font: inherit; max-width: 100%; color: var(--text); }
-  section.card.dragging { outline: 2px dashed var(--accent); outline-offset: 3px; background: var(--accent-soft); }
+
+  /* buttons */
+  button { font: inherit; cursor: pointer; border-radius: 8px; border: 1px solid var(--border);
+    background: var(--card); color: var(--text); padding: 7px 13px; }
+  button:hover:not(:disabled) { border-color: var(--accent); }
+  button.primary { background: var(--accent); color: var(--accent-text); border-color: var(--accent); font-weight: 600; }
+  button.ghost { background: none; color: var(--muted); }
+  button:disabled { opacity: .5; cursor: not-allowed; }
+  :focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+
+  /* material card */
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+    padding: 16px 18px; margin-bottom: 16px; box-shadow: var(--shadow); }
+  .card.dragging { outline: 2px dashed var(--accent); outline-offset: 3px; background: var(--accent-soft); }
+  .card-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  h2 { font-size: 1rem; margin: 0; }
+  .meta { color: var(--muted); font-size: .85rem; font-weight: 400; margin-left: 6px; }
+  ul.docs { list-style: none; margin: 10px 0 0; padding: 0; }
+  ul.docs li { display: flex; align-items: center; gap: 10px; padding: 7px 0; border-top: 1px solid var(--border); }
+  ul.docs .name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  ul.docs .count { color: var(--muted); font-size: .82rem; white-space: nowrap; }
+  ul.docs button { padding: 3px 9px; font-size: .82rem; color: var(--danger); }
+  .empty { color: var(--muted); margin: 10px 0 0; font-size: .95rem; }
+  .status { color: var(--muted); font-size: .88rem; margin-top: 10px; white-space: pre-line; }
+  .status:empty { display: none; }
+  .status.error { color: var(--danger); }
+
+  /* conversation */
+  .chat { flex: 1; display: flex; flex-direction: column; gap: 14px; padding: 6px 0 18px; min-height: 160px; }
+  .welcome { text-align: center; color: var(--muted); padding: 22px 8px; }
+  .welcome h3 { color: var(--text); font-size: 1.1rem; margin: 0 0 6px; }
+  .welcome p { margin: 0 0 14px; }
+  .examples { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+  .examples button { border-radius: 999px; background: var(--card); font-size: .9rem; }
+  .msg { display: flex; }
+  .msg.user { justify-content: flex-end; }
+  .bubble { max-width: 88%; padding: 10px 14px; border-radius: 16px; overflow-wrap: anywhere; }
+  .user .bubble { background: var(--accent); color: var(--accent-text); border-bottom-right-radius: 4px;
+    white-space: pre-wrap; }
+  .bot .bubble { background: var(--card); border: 1px solid var(--border); border-bottom-left-radius: 4px;
+    box-shadow: var(--shadow); max-width: 100%; width: 100%; }
+  .bot.error .bubble { background: var(--danger-soft); border-color: var(--danger); color: var(--danger); }
+  .answer { white-space: pre-wrap; }
+  .answer pre { background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px;
+    padding: 12px; overflow-x: auto; white-space: pre; font-size: .88rem; margin: 8px 0; }
+  .answer code { background: var(--code-bg); padding: 1px 5px; border-radius: 4px; font-size: .9em;
+    font-family: ui-monospace, "Cascadia Code", Consolas, monospace; }
+  .answer pre code { background: none; padding: 0; }
+  .sources { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border);
+    display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: .82rem; color: var(--muted); }
+  .chip { background: var(--accent-soft); color: var(--accent); border-radius: 999px; padding: 2px 10px;
+    max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .actions { margin-left: auto; }
+  .actions button { padding: 2px 9px; font-size: .78rem; color: var(--muted); }
+  .typing { display: inline-flex; gap: 5px; padding: 4px 2px; }
+  .typing span { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); opacity: .4;
+    animation: blink 1.2s infinite; }
+  .typing span:nth-child(2) { animation-delay: .2s; }
+  .typing span:nth-child(3) { animation-delay: .4s; }
+  @keyframes blink { 0%, 80%, 100% { opacity: .25; } 40% { opacity: 1; } }
+  @media (prefers-reduced-motion: reduce) { .typing span { animation: none; opacity: .6; } }
+
+  /* composer */
+  .composer { position: sticky; bottom: 0; background: linear-gradient(to bottom, transparent, var(--bg) 22%);
+    padding: 22px 0 6px; }
+  .composer-box { display: flex; align-items: flex-end; gap: 8px; background: var(--card);
+    border: 1px solid var(--border); border-radius: 14px; padding: 8px 8px 8px 14px; box-shadow: var(--shadow); }
+  .composer-box:focus-within { border-color: var(--accent); }
+  textarea { flex: 1; resize: none; border: 0; outline: 0; background: none; color: var(--text);
+    font: inherit; line-height: 1.45; padding: 6px 0; max-height: 160px; }
+  .hint { color: var(--muted); font-size: .78rem; margin: 6px 4px 0; }
+  footer { color: var(--muted); font-size: .8rem; text-align: center; padding: 8px 0 14px; }
+  footer a { color: var(--accent); }
+  @media (max-width: 520px) {
+    .app { padding: 16px 12px 8px; }
+    h1 { font-size: 1.35rem; }
+    .bubble { max-width: 94%; }
+  }
 </style>
 </head>
 <body>
-<main>
+<div class="app">
   <div id="notServed" class="banner" hidden>
     You are looking at a preview of the page file, not the running app, so nothing on this page can work.
     Open <a href="http://127.0.0.1:8000">http://127.0.0.1:8000</a> in your browser instead.
   </div>
-  <h1>{{APP_NAME}}</h1>
-  <p class="lead">Ask questions about your lecture slides and textbooks. Answers come only from the PDFs
-    you add, and every answer shows which pages it used so you can check it.</p>
 
-  <section class="card" aria-labelledby="h-material">
-    <h2 id="h-material"><span class="step">1</span>Add your material</h2>
-    <p class="hint">Upload lecture slides or a textbook chapter as a PDF. Scanned pages (photos of text)
-      can't be read.</p>
-    <p id="empty" class="empty" hidden>Nothing added yet. Choose a PDF to get started.</p>
-    <ul id="docs" class="docs" aria-live="polite"></ul>
-    <div class="row">
-      <input type="file" id="file" accept="application/pdf,.pdf" aria-label="Choose a PDF file">
-      <button id="upload" class="primary">Upload</button>
+  <header class="top">
+    <div>
+      <h1>{{APP_NAME}}</h1>
+      <p class="tag">Ask questions about your lecture slides and textbooks. Answers come only from your PDFs,
+        with the pages they came from.</p>
     </div>
-    <p class="hint">Choose a PDF, then press Upload. You can also drag a PDF onto this box.</p>
+    <button id="newChat" class="ghost" type="button" hidden>New chat</button>
+  </header>
+
+  <section class="card" id="material" aria-labelledby="h-material">
+    <div class="card-head">
+      <h2 id="h-material">Your material<span class="meta" id="docCount"></span></h2>
+      <button id="addBtn" class="primary" type="button">+ Add PDFs</button>
+      <input type="file" id="file" accept="application/pdf,.pdf" multiple hidden>
+    </div>
+    <ul id="docs" class="docs"></ul>
+    <p id="empty" class="empty" hidden>No documents yet. Add one or more PDFs, or drag them onto this box.
+      Scanned pages (photos of text) can't be read.</p>
     <div id="uploadStatus" class="status" role="status" aria-live="polite"></div>
   </section>
 
-  <section class="card" aria-labelledby="h-ask">
-    <h2 id="h-ask"><span class="step">2</span>Ask a question</h2>
-    <p class="hint">Write it the way you'd ask a classmate. Press Enter to ask (Shift+Enter for a new line).</p>
-    <textarea id="question" maxlength="2000" aria-labelledby="h-ask"
-      placeholder="For example: What is the difference between argv and envp?"></textarea>
-    <div class="row">
-      <button id="ask" class="primary" disabled>Ask</button>
-      <span id="askStatus" class="status" role="status" aria-live="polite"></span>
+  <main id="chat" class="chat" role="log" aria-live="polite" aria-label="Conversation">
+    <div id="welcome" class="welcome">
+      <h3 id="welcomeTitle">Ask anything about your material</h3>
+      <p id="welcomeText">Try one of these, or type your own question below.</p>
+      <div id="examples" class="examples"></div>
     </div>
-  </section>
+  </main>
 
-  <section class="card" id="result" aria-live="polite">
-    <div id="answer"></div>
-    <div id="sources" class="sources"></div>
-  </section>
+  <form id="composer" class="composer" autocomplete="off">
+    <div class="composer-box">
+      <textarea id="question" rows="1" maxlength="2000" aria-label="Your question"
+        placeholder="Ask a question about your PDFs..."></textarea>
+      <button id="send" class="primary" type="submit" disabled>Send</button>
+    </div>
+    <p class="hint">Enter to send, Shift+Enter for a new line. Each question is answered on its own,
+      so name the topic in follow-ups.</p>
+  </form>
 
-  <footer>Answers are generated by an AI from your PDFs and can be wrong, so check the cited pages.
+  <footer>Answers are AI-generated from your PDFs and can be wrong, so check the cited pages.
     Developers: <a href="/docs">API documentation</a>.</footer>
-</main>
+</div>
 
 <script>
 const $ = (id) => document.getElementById(id);
+const EXAMPLES = [
+  "What is this material about?",
+  "Summarize the key ideas",
+  "What are the most important terms to know?",
+];
 let hasDocs = false;
 let busy = false;
+let uploading = false;
+
+/* ---------- small helpers ---------- */
+function el(tag, className, text) {
+  const node = document.createElement(tag);
+  if (className) node.className = className;
+  if (text !== undefined) node.textContent = text;
+  return node;
+}
 
 async function api(path, options) {
   let response;
@@ -140,103 +199,103 @@ async function api(path, options) {
   return data;
 }
 
-function setStatus(el, text, isError = false) {
-  el.textContent = text;
-  el.classList.toggle("error", isError);
+function setStatus(text, isError = false) {
+  const status = $("uploadStatus");
+  status.textContent = text;
+  status.classList.toggle("error", isError);
 }
 
-function updateAskButton() {
-  $("ask").disabled = busy || !hasDocs || !$("question").value.trim();
+function updateControls() {
+  $("send").disabled = busy || !hasDocs || !$("question").value.trim();
+  $("question").placeholder = hasDocs
+    ? "Ask a question about your PDFs..."
+    : "Add a PDF above to start asking questions";
+  $("question").disabled = !hasDocs;
+  $("addBtn").disabled = uploading;
 }
 
+function scrollToEnd() {
+  window.scrollTo({ top: document.documentElement.scrollHeight, behavior: "smooth" });
+}
+
+/* ---------- your material ---------- */
 async function refreshDocs() {
   const docs = await api("/documents");
-  const names = Object.keys(docs).sort();
+  const names = Object.keys(docs).sort((a, b) => a.localeCompare(b));
   hasDocs = names.length > 0;
   $("empty").hidden = hasDocs;
+  $("docCount").textContent = hasDocs ? names.length + (names.length === 1 ? " file" : " files") : "";
   const list = $("docs");
   list.replaceChildren();
   for (const name of names) {
-    const li = document.createElement("li");
-    const label = document.createElement("span");
-    label.className = "name";
-    label.textContent = name;
-    const count = document.createElement("span");
-    count.className = "count";
-    count.textContent = docs[name] + (docs[name] === 1 ? " section" : " sections");
-    const remove = document.createElement("button");
-    remove.textContent = "Remove";
+    const li = el("li");
+    const label = el("span", "name", name);
+    label.title = name;
+    const count = el("span", "count", docs[name] + (docs[name] === 1 ? " section" : " sections"));
+    const remove = el("button", null, "Remove");
+    remove.type = "button";
     remove.setAttribute("aria-label", "Remove " + name);
     remove.addEventListener("click", () => removeDoc(name));
     li.append(label, count, remove);
     list.append(li);
   }
-  updateAskButton();
+  renderWelcome();
+  updateControls();
 }
 
 async function removeDoc(name) {
   if (!confirm('Remove "' + name + '"? You can add it again later.')) return;
   try {
     await api("/documents?source=" + encodeURIComponent(name), { method: "DELETE" });
-    setStatus($("uploadStatus"), 'Removed "' + name + '".');
+    setStatus('Removed "' + name + '".');
     await refreshDocs();
   } catch (err) {
-    setStatus($("uploadStatus"), err.message, true);
+    setStatus(err.message, true);
   }
 }
 
-let uploading = false;
-
-async function uploadFile(file) {
-  if (uploading) return;
-  const status = $("uploadStatus");
-  if (!file.name.toLowerCase().endsWith(".pdf")) {
-    setStatus(status, '"' + file.name + '" is not a PDF. Please choose a .pdf file.', true);
-    return;
-  }
+async function uploadFiles(fileList) {
+  const files = [...fileList];
+  if (!files.length || uploading) return;
   uploading = true;
-  setStatus(status, "Reading and indexing " + file.name + "... this can take a minute for big files.");
-  $("file").disabled = true;
-  $("upload").disabled = true;
-  try {
-    const body = new FormData();
-    body.append("file", file);
-    const result = await api("/documents", { method: "POST", body });
-    let message = 'Added "' + result.source + '" (' + result.chunks + " sections).";
-    if (result.empty_pages.length) {
-      message += " Pages with no readable text were skipped: " + result.empty_pages.join(", ") + ".";
+  updateControls();
+  const added = [];
+  const problems = [];
+  for (const [i, file] of files.entries()) {
+    setStatus("Adding " + (i + 1) + " of " + files.length + ": " + file.name +
+      "\nLarge files can take a minute.");
+    if (!file.name.toLowerCase().endsWith(".pdf")) {
+      problems.push(file.name + ": not a PDF file");
+      continue;
     }
-    setStatus(status, message);
-    await refreshDocs();
-  } catch (err) {
-    setStatus(status, err.message, true);
-  } finally {
-    uploading = false;
-    $("file").disabled = false;
-    $("upload").disabled = false;
+    try {
+      const body = new FormData();
+      body.append("file", file);
+      const result = await api("/documents", { method: "POST", body });
+      added.push(result.source);
+      if (result.empty_pages.length) {
+        problems.push(result.source + ": added, but pages without readable text were skipped (" +
+          result.empty_pages.join(", ") + ")");
+      }
+    } catch (err) {
+      problems.push(file.name + ": " + err.message);
+    }
   }
+  uploading = false;
+  try { await refreshDocs(); } catch (err) { problems.push(err.message); }
+  const summary = added.length ? "Added " + added.length + (added.length === 1 ? " PDF." : " PDFs.") : "";
+  setStatus([summary, ...problems].filter(Boolean).join("\n"), problems.length > 0 && added.length === 0);
+  updateControls();
 }
 
-// Three ways in, so one of them works in any browser: picking a file (starts at once),
-// pressing Upload (reads the chosen file at click time), or dragging a PDF onto the box.
-function takeChosenFile() {
-  const file = $("file").files[0];
-  if (file) $("file").value = "";  // so choosing the same file again still counts as a change
-  return file;
-}
-
+$("addBtn").addEventListener("click", () => $("file").click());
 $("file").addEventListener("change", () => {
-  const file = takeChosenFile();
-  if (file) uploadFile(file);
+  const files = [...$("file").files];
+  $("file").value = "";  // so choosing the same file again still counts as a change
+  uploadFiles(files);
 });
 
-$("upload").addEventListener("click", () => {
-  const file = takeChosenFile();
-  if (file) uploadFile(file);
-  else setStatus($("uploadStatus"), "Choose a PDF first, then press Upload.", true);
-});
-
-const materialCard = document.querySelector('section[aria-labelledby="h-material"]');
+const materialCard = $("material");
 for (const type of ["dragenter", "dragover"]) {
   materialCard.addEventListener(type, (event) => {
     event.preventDefault();
@@ -249,14 +308,12 @@ for (const type of ["dragleave", "drop"]) {
     materialCard.classList.remove("dragging");
   });
 }
-materialCard.addEventListener("drop", (event) => {
-  const file = event.dataTransfer.files[0];
-  if (file) uploadFile(file);
-});
-// A PDF dropped outside the box would make the browser open it and leave the page.
+materialCard.addEventListener("drop", (event) => uploadFiles(event.dataTransfer.files));
+// A file dropped outside the box would make the browser open it and leave the page.
 window.addEventListener("dragover", (event) => event.preventDefault());
 window.addEventListener("drop", (event) => event.preventDefault());
 
+/* ---------- rendering answers ---------- */
 // Turn the model's text into safe DOM: ```code blocks```, `inline code`, **bold**, bullets.
 // Everything goes through textContent, so nothing in an answer can inject HTML.
 function renderAnswer(container, text) {
@@ -267,10 +324,8 @@ function renderAnswer(container, text) {
   const parts = prepared.split(/```[^\n]*\n([\s\S]*?)```/g);
   parts.forEach((part, i) => {
     if (i % 2 === 1) {  // a fenced code block
-      const pre = document.createElement("pre");
-      const code = document.createElement("code");
-      code.textContent = part.replace(/\n$/, "");
-      pre.append(code);
+      const pre = el("pre");
+      pre.append(el("code", null, part.replace(/\n$/, "")));
       container.append(pre);
       return;
     }
@@ -283,65 +338,168 @@ function renderAnswer(container, text) {
 function appendInline(parent, text) {
   for (const piece of text.split(/(\*\*[^*\n]+\*\*|`[^`\n]+`)/g)) {
     if (piece.startsWith("**") && piece.endsWith("**") && piece.length > 4) {
-      const strong = document.createElement("strong");
+      const strong = el("strong");
       appendInline(strong, piece.slice(2, -2));
       parent.append(strong);
     } else if (piece.startsWith("`") && piece.endsWith("`") && piece.length > 2) {
-      const code = document.createElement("code");
-      code.textContent = piece.slice(1, -1);
-      parent.append(code);
+      parent.append(el("code", null, piece.slice(1, -1)));
     } else if (piece) {
       parent.append(document.createTextNode(piece));
     }
   }
 }
 
-async function ask() {
-  const question = $("question").value.trim();
+// One tag per file, listing its pages: "Pointers.pdf  p. 3, 4"
+function groupSources(sources) {
+  const byFile = new Map();
+  for (const s of sources) {
+    if (!byFile.has(s.source)) byFile.set(s.source, new Set());
+    byFile.get(s.source).add(s.page);
+  }
+  return [...byFile].map(([name, pages]) => ({ name, pages: [...pages].sort((a, b) => a - b) }));
+}
+
+/* ---------- conversation ---------- */
+function renderWelcome() {
+  const box = $("examples");
+  box.replaceChildren();
+  if (hasDocs) {
+    $("welcomeTitle").textContent = "Ask anything about your material";
+    $("welcomeText").textContent = "Try one of these, or type your own question below.";
+    for (const text of EXAMPLES) {
+      const button = el("button", null, text);
+      button.type = "button";
+      button.addEventListener("click", () => send(text));
+      box.append(button);
+    }
+  } else {
+    $("welcomeTitle").textContent = "Start by adding a PDF";
+    $("welcomeText").textContent = "Use “+ Add PDFs” above, then ask your questions here.";
+  }
+}
+
+function startConversation() {
+  $("welcome").hidden = true;
+  $("newChat").hidden = false;
+}
+
+function addUserMessage(text) {
+  const row = el("div", "msg user");
+  row.append(el("div", "bubble", text));
+  $("chat").append(row);
+}
+
+function addPendingReply() {
+  const row = el("div", "msg bot");
+  const bubble = el("div", "bubble");
+  const dots = el("div", "typing");
+  dots.setAttribute("role", "status");
+  dots.setAttribute("aria-label", "Thinking");
+  dots.append(el("span"), el("span"), el("span"));
+  bubble.append(dots);
+  row.append(bubble);
+  $("chat").append(row);
+  return { row, bubble };
+}
+
+function fillReply(pending, data) {
+  pending.bubble.replaceChildren();
+  const answer = el("div", "answer");
+  renderAnswer(answer, data.answer);
+  pending.bubble.append(answer);
+
+  const footer = el("div", "sources");
+  const groups = groupSources(data.sources);
+  if (groups.length) {
+    footer.append(document.createTextNode("Sources"));
+    for (const g of groups) {
+      const chip = el("span", "chip", g.name.replace(/\.pdf$/i, "") + "  ·  p. " + g.pages.join(", "));
+      chip.title = g.name + ", page " + g.pages.join(", ");
+      footer.append(chip);
+    }
+  }
+  const actions = el("span", "actions");
+  const copy = el("button", "ghost", "Copy");
+  copy.type = "button";
+  copy.addEventListener("click", async () => {
+    try {
+      await navigator.clipboard.writeText(data.answer);
+      copy.textContent = "Copied";
+    } catch {
+      copy.textContent = "Copy failed";
+    }
+    setTimeout(() => { copy.textContent = "Copy"; }, 1500);
+  });
+  actions.append(copy);
+  footer.append(actions);
+  pending.bubble.append(footer);
+}
+
+function fillError(pending, message) {
+  pending.row.classList.add("error");
+  pending.bubble.replaceChildren(document.createTextNode(message));
+}
+
+async function send(text) {
+  const question = (text !== undefined ? text : $("question").value).trim();
   if (!question || busy || !hasDocs) return;
   busy = true;
-  updateAskButton();
-  setStatus($("askStatus"), "Thinking...");
+  startConversation();
+  addUserMessage(question);
+  $("question").value = "";   // the question now lives in the conversation, not the box
+  autoGrow();
+  const pending = addPendingReply();
+  updateControls();
+  scrollToEnd();
   try {
     const data = await api("/ask", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ question }),
     });
-    renderAnswer($("answer"), data.answer);
-    const sources = $("sources");
-    sources.replaceChildren();
-    if (data.sources.length) {
-      sources.append(document.createTextNode("Found on: "));
-      for (const s of data.sources) {
-        const chip = document.createElement("span");
-        chip.className = "chip";
-        chip.textContent = s.source + ", page " + s.page;
-        sources.append(chip);
-      }
-    }
-    $("result").style.display = "block";
-    setStatus($("askStatus"), "");
+    fillReply(pending, data);
   } catch (err) {
-    setStatus($("askStatus"), err.message, true);
+    fillError(pending, err.message);
   } finally {
     busy = false;
-    updateAskButton();
+    updateControls();
+    scrollToEnd();
+    if (!$("question").disabled) $("question").focus();
   }
 }
 
-$("ask").addEventListener("click", ask);
-$("question").addEventListener("input", updateAskButton);
+function newChat() {
+  for (const node of [...$("chat").children]) if (node.id !== "welcome") node.remove();
+  $("welcome").hidden = false;
+  $("newChat").hidden = true;
+}
+
+/* ---------- composer ---------- */
+function autoGrow() {
+  const box = $("question");
+  box.style.height = "auto";
+  box.style.height = Math.min(box.scrollHeight, 160) + "px";
+}
+
+$("composer").addEventListener("submit", (event) => {
+  event.preventDefault();
+  send();
+});
+$("question").addEventListener("input", () => { autoGrow(); updateControls(); });
 $("question").addEventListener("keydown", (event) => {
   if (event.key === "Enter" && !event.shiftKey && !event.isComposing) {
     event.preventDefault();
-    ask();
+    send();
   }
 });
+$("newChat").addEventListener("click", newChat);
 
+/* ---------- start ---------- */
+renderWelcome();
+updateControls();
 // If this file was opened straight from disk (file:, data:) there is no server behind it.
 if (/^https?:$/.test(location.protocol)) {
-  refreshDocs().catch((err) => setStatus($("uploadStatus"), err.message, true));
+  refreshDocs().catch((err) => setStatus(err.message, true));
 } else {
   $("notServed").hidden = false;
 }

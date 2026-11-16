@@ -52,7 +52,8 @@ def isolated_env(tmp_path, monkeypatch):
     monkeypatch.setenv("CHROMA_PATH", str(tmp_path / "chroma"))
     monkeypatch.setenv("GEMINI_API_KEY", "test-key")
     for name in (
-        "CHUNK_SIZE", "CHUNK_OVERLAP", "PAGE_LIMIT", "TOP_K", "MAX_DISTANCE", "APP_NAME", "MAX_UPLOAD_MB",
+        "CHUNK_SIZE", "CHUNK_OVERLAP", "PAGE_LIMIT", "TOP_K", "PER_SOURCE_K", "MAX_DISTANCE", "APP_NAME",
+        "MAX_UPLOAD_MB",
     ):
         monkeypatch.delenv(name, raising=False)
     _clear_caches()

@@ -104,7 +104,8 @@ Set in `.env` or the environment. All optional except the key.
 | `CHROMA_PATH` | `chroma_db` | Where ChromaDB stores data |
 | `CHUNK_SIZE` / `CHUNK_OVERLAP` | `800` / `100` | Size and overlap when a long page is split |
 | `PAGE_LIMIT` | `1200` | Pages up to this length stay one chunk |
-| `TOP_K` | `4` | Chunks retrieved per question |
+| `PER_SOURCE_K` | `2` | Chunks taken from each document, so every document is heard |
+| `TOP_K` | `8` | Most chunks sent to the model in total, after the relevance cutoff |
 | `MAX_DISTANCE` | `0.38` | Relevance cutoff (cosine distance, lower = closer) |
 
 **Tuning `MAX_DISTANCE`.** The default was measured on one 11-slide C deck: on-topic questions had their
