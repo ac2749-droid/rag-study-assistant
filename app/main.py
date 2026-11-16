@@ -30,8 +30,20 @@ app = FastAPI(
 )
 
 
+class TurnIn(BaseModel):
+    """One earlier exchange, sent back by the page so follow-up questions make sense."""
+
+    question: str = Field(max_length=2000)
+    answer: str = Field(max_length=20000)
+
+
 class AskRequest(BaseModel):
     question: str = Field(max_length=2000, examples=["What does getopt() return for an unknown option?"])
+    history: list[TurnIn] = Field(
+        default_factory=list,
+        max_length=20,
+        description="Earlier exchanges, oldest first. Only the most recent few are used.",
+    )
 
     @field_validator("question")
     @classmethod
@@ -125,7 +137,8 @@ def delete_document(source: str) -> dict[str, int]:
 @app.post("/ask", response_model=AskResponse)
 def ask(body: AskRequest) -> AskResponse:
     try:
-        result = rag.answer_question(body.question)
+        history = [rag.Turn(t.question, t.answer) for t in body.history]
+        result = rag.answer_question(body.question, history)
     except rag.NoMaterialError:
         raise HTTPException(409, "No material yet. Add a PDF first.") from None
     except GeminiBusyError:

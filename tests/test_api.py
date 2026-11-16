@@ -52,7 +52,9 @@ def test_every_document_is_searched_not_just_the_closest_one(client, fake_gemini
 
 def test_prompt_labels_each_excerpt_with_file_and_page(client, loaded_store, fake_gemini):
     client.post("/ask", json={"question": "getopt?"})
-    assert "[deck.pdf, page 3]" in fake_gemini["prompts"][0]
+    prompt = fake_gemini["prompts"][0]
+    assert "[deck.pdf, page 3]" in prompt
+    assert "ask which topic they mean" in prompt  # vague questions get a clarifying question
 
 
 def test_question_is_embedded_as_a_query(client, loaded_store, fake_gemini):

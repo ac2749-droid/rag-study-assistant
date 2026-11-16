@@ -5,6 +5,7 @@ from app import config, gemini, store
 from app.chunking import Chunk
 
 KEYWORDS = ["getopt", "environment", "strtok"]
+REWRITTEN_QUESTION = "Explain the getopt return values in more detail"
 
 
 def fake_vector(text: str) -> list[float]:
@@ -72,6 +73,8 @@ def fake_gemini(monkeypatch):
 
     def generate(prompt):
         calls["prompts"].append(prompt)
+        if prompt.startswith("Rewrite the student's latest message"):
+            return REWRITTEN_QUESTION  # what the "follow-up rewriter" would produce
         return "FAKE ANSWER"
 
     monkeypatch.setattr(gemini, "embed_texts", embed)

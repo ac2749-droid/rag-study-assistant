@@ -24,6 +24,10 @@ Design choices worth knowing:
 - **Answers come only from your material.** The prompt tells the model to use the excerpts and to say so
   when the answer isn't there. The excerpts are also marked as data, not instructions, so text inside a
   slide can't redirect the model.
+- **Follow-up questions.** The page sends the last few exchanges with each question. A vague follow-up
+  ("explain that more") is first rewritten into a standalone question by the model, and that rewrite is
+  what gets searched; if the rewrite fails, the original text is used. The first question of a chat skips
+  this step, so it costs nothing extra.
 - **Relevance cutoff.** Chunks farther than `MAX_DISTANCE` from the question are discarded. If nothing is
   close enough, the app replies "I can't find that in the uploaded material" without calling the LLM.
 - **One slide, one chunk.** A short slide is usually one idea (or one code sample), so pages up to
@@ -73,7 +77,7 @@ Interactive documentation is at <http://127.0.0.1:8000/docs>.
 
 | Method | Path | Purpose |
 |---|---|---|
-| `POST` | `/ask` | Body `{"question": "..."}`. Returns `{"answer": "...", "sources": [{"source": "file.pdf", "page": 4}]}` |
+| `POST` | `/ask` | Body `{"question": "...", "history": [{"question": "...", "answer": "..."}]}` (`history` is optional, up to 20 earlier exchanges, oldest first). Returns `{"answer": "...", "sources": [{"source": "file.pdf", "page": 4}]}` |
 | `GET` | `/documents` | Files currently stored, with chunk counts |
 | `POST` | `/documents` | Upload a PDF (multipart field `file`). Same name replaces the old copy |
 | `DELETE` | `/documents?source=file.pdf` | Remove a file |
@@ -140,7 +144,8 @@ tests/            pytest suite
 
 - Text only: diagrams and images in slides are not read (a diagram's labels may extract as junk).
   Scanned or image-only PDFs have no text and are rejected at ingest.
-- Single-turn: each question is answered independently; there is no conversation memory.
+- Short memory: follow-ups work because the page sends the last 6 exchanges, but nothing is saved
+  between visits, and very old turns are forgotten. "New chat" wipes the memory.
 - There is no authentication or per-user separation: everything lives in one shared collection. It is
   meant to run locally for one user (see Security above).
 - Retrieval is purely by meaning. It can miss questions that depend on exact terms or on combining
