@@ -3,11 +3,9 @@ import threading
 import time
 
 import pytest
-from fastapi.testclient import TestClient
 
-from app import gemini, jobs, store
+from app import auth, gemini, jobs, store
 from app.chunking import Chunk
-from app.main import app
 from tests.conftest import make_pdf, wait_for_job
 
 
@@ -32,7 +30,7 @@ def queue_under_test():
 def test_a_job_moves_from_queued_to_running_to_done(queue_under_test, monkeypatch):
     release = threading.Event()
 
-    def slow_add(chunks, source, on_progress=None):
+    def slow_add(chunks, source, on_progress=None, **kwargs):
         on_progress(1, len(chunks))
         release.wait(5)
         on_progress(len(chunks), len(chunks))
@@ -49,7 +47,7 @@ def test_a_job_moves_from_queued_to_running_to_done(queue_under_test, monkeypatc
 def test_files_are_indexed_one_at_a_time_in_order(queue_under_test, monkeypatch):
     order, release = [], threading.Event()
 
-    def add(chunks, source, on_progress=None):
+    def add(chunks, source, on_progress=None, **kwargs):
         order.append(("start", source))
         release.wait(5)
         order.append(("end", source))
@@ -77,7 +75,7 @@ def test_files_are_indexed_one_at_a_time_in_order(queue_under_test, monkeypatch)
     ],
 )
 def test_failures_become_friendly_job_errors(queue_under_test, monkeypatch, error, expected):
-    def explode(chunks, source, on_progress=None):
+    def explode(chunks, source, on_progress=None, **kwargs):
         raise error
 
     monkeypatch.setattr(store, "add_chunks", explode)
@@ -88,7 +86,7 @@ def test_failures_become_friendly_job_errors(queue_under_test, monkeypatch, erro
 
 
 def test_a_failed_job_does_not_stop_the_next_one(queue_under_test, monkeypatch):
-    def add(chunks, source, on_progress=None):
+    def add(chunks, source, on_progress=None, **kwargs):
         if source == "bad.pdf":
             raise gemini.GeminiBusyError("busy")
         return len(chunks)
@@ -101,7 +99,7 @@ def test_a_failed_job_does_not_stop_the_next_one(queue_under_test, monkeypatch):
 
 
 def test_only_recent_finished_jobs_are_remembered(queue_under_test, monkeypatch):
-    monkeypatch.setattr(store, "add_chunks", lambda chunks, source, on_progress=None: len(chunks))
+    monkeypatch.setattr(store, "add_chunks", lambda chunks, source, on_progress=None, **kwargs: len(chunks))
     monkeypatch.setattr(jobs, "KEEP_JOBS", 3)
     made = [queue_under_test.submit(chunks_for(f"{i}.pdf", 1), f"{i}.pdf", []) for i in range(6)]
     wait_until(lambda: all(j.status == jobs.DONE for j in made))
@@ -111,11 +109,6 @@ def test_only_recent_finished_jobs_are_remembered(queue_under_test, monkeypatch)
 
 
 # ----- through the HTTP API -----
-
-
-@pytest.fixture
-def client():
-    return TestClient(app)
 
 
 def upload(client, content, name="notes.pdf"):
@@ -134,7 +127,7 @@ def test_jobs_endpoint_lists_newest_first(client, fake_gemini):
 def test_job_reports_progress_and_an_eta_while_active(client, fake_gemini, monkeypatch):
     release = threading.Event()
 
-    def slow_add(chunks, source, on_progress=None):
+    def slow_add(chunks, source, on_progress=None, **kwargs):
         on_progress(1, len(chunks))
         release.wait(5)
         on_progress(len(chunks), len(chunks))
@@ -155,14 +148,15 @@ def test_eta_follows_the_pace_setting(client, monkeypatch):
 
     release = threading.Event()
 
-    def hold(chunks, source, on_progress=None):
+    def hold(chunks, source, on_progress=None, **kwargs):
         release.wait(5)
         return len(chunks)
 
     monkeypatch.setattr(store, "add_chunks", hold)
     monkeypatch.setenv("EMBED_TEXTS_PER_MINUTE", "60")
     config.get_settings.cache_clear()
-    job = jobs.index_queue.submit(chunks_for("big.pdf", 120), "big.pdf", [])
+    owner = auth.get_user_by_name("admin")  # jobs are private to the account that added them
+    job = jobs.index_queue.submit(chunks_for("big.pdf", 120), "big.pdf", [], owner_id=owner.id)
     wait_until(lambda: job.status == jobs.RUNNING)
     assert client.get(f"/jobs/{job.id}").json()["eta_seconds"] == 120  # 120 sections at 60/min = 2 minutes
     monkeypatch.setenv("EMBED_TEXTS_PER_MINUTE", "0")

@@ -2,11 +2,15 @@
 import time
 
 import pytest
+from fastapi.testclient import TestClient
 
-from app import config, gemini, store
+from app import auth, config, gemini, jobs, ratelimit, store
 from app.chunking import Chunk
 
 KEYWORDS = ["getopt", "environment", "strtok"]
+ADMIN_NAME = "admin"
+ADMIN_PASSWORD = "correct horse battery"
+CSRF_HEADER = {"X-Requested-With": "XMLHttpRequest"}  # what the real page sends with every change
 REWRITTEN_QUESTION = "Explain the getopt return values in more detail"
 
 
@@ -61,21 +65,57 @@ def _clear_caches() -> None:
     for function in (config.get_settings, store.get_collection, gemini.get_client):
         getattr(function, "cache_clear", lambda: None)()
     gemini._WINDOW.reset()  # forget how many texts earlier tests "sent" this minute
+    auth.throttle.reset()  # forget earlier tests' wrong passwords
+    ratelimit.ask_limiter.reset()  # and how many questions they asked
+    jobs.index_queue.reset()  # and which indexing jobs they started
 
 
 @pytest.fixture(autouse=True)
 def isolated_env(tmp_path, monkeypatch):
     monkeypatch.setenv("CHROMA_PATH", str(tmp_path / "chroma"))
+    monkeypatch.setenv("DATA_DIR", str(tmp_path / "data"))
     monkeypatch.setenv("GEMINI_API_KEY", "test-key")
     for name in (
         "CHUNK_SIZE", "CHUNK_OVERLAP", "PAGE_LIMIT", "TOP_K", "PER_SOURCE_K", "MAX_DISTANCE", "APP_NAME",
         "MAX_UPLOAD_MB", "CHAT_MODEL", "CHAT_FALLBACK_MODELS", "GEMINI_TIMEOUT_SECONDS",
-        "EMBED_TEXTS_PER_MINUTE",
+        "EMBED_TEXTS_PER_MINUTE", "SESSION_HOURS", "COOKIE_SECURE", "ASK_PER_MINUTE", "COLLECTION_NAME",
     ):
         monkeypatch.delenv(name, raising=False)
     _clear_caches()
     yield
     _clear_caches()
+
+
+@pytest.fixture
+def anon_client():
+    """A browser that has not signed in. (It does send the header the real page adds to every change.)"""
+    from app.main import app
+
+    return TestClient(app, headers=CSRF_HEADER)
+
+
+@pytest.fixture
+def client(anon_client):
+    """A browser signed in as the first account (the administrator), which owns the original library."""
+    response = anon_client.post("/auth/setup", json={"username": ADMIN_NAME, "password": ADMIN_PASSWORD})
+    assert response.status_code == 200, response.text
+    return anon_client
+
+
+@pytest.fixture
+def new_user(client):
+    """Make another account (as the administrator) and return a separate, signed-in browser for it."""
+    from app.main import app
+
+    def make(username: str, password: str = "another long password", role: str = "user") -> TestClient:
+        created = client.post("/admin/users", json={"username": username, "password": password, "role": role})
+        assert created.status_code == 201, created.text
+        browser = TestClient(app, headers=CSRF_HEADER)
+        login = browser.post("/auth/login", json={"username": username, "password": password})
+        assert login.status_code == 200, login.text
+        return browser
+
+    return make
 
 
 @pytest.fixture

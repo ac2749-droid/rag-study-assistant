@@ -1,4 +1,9 @@
-"""ChromaDB storage: save embedded chunks, search by meaning, list what's stored."""
+"""ChromaDB storage: save embedded chunks, search by meaning, list what's stored.
+
+Every user has a private "library" (a ChromaDB collection of their own), so one person's documents can
+never show up in another person's answers. Every function takes an optional `collection_name`; without
+it the original library is used (the first account's, and what tests and the command line use).
+"""
 import logging
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -21,17 +26,23 @@ class Hit:
     distance: float  # cosine distance: 0 = identical meaning, larger = less related
 
 
-@lru_cache
-def get_collection() -> chromadb.Collection:
+@lru_cache(maxsize=256)
+def get_collection(name: str | None = None) -> chromadb.Collection:
     settings = get_settings()
     db = chromadb.PersistentClient(path=str(settings.chroma_path))
     # cosine = compare by direction (meaning), not vector length
-    return db.get_or_create_collection(settings.collection_name, metadata={"hnsw:space": "cosine"})
+    return db.get_or_create_collection(name or settings.collection_name, metadata={"hnsw:space": "cosine"})
 
 
-def _stored_texts(source: str) -> dict[str, str]:
+def delete_library(name: str) -> None:
+    """Delete a whole library (used when an account is removed)."""
+    chromadb.PersistentClient(path=str(get_settings().chroma_path)).delete_collection(name)
+    get_collection.cache_clear()
+
+
+def _stored_texts(source: str, collection_name: str | None) -> dict[str, str]:
     """{section id: text} for the sections of `source` that are already in the database."""
-    found = get_collection().get(where={"source": source}, include=["documents"])
+    found = get_collection(collection_name).get(where={"source": source}, include=["documents"])
     return dict(zip(found["ids"], found["documents"], strict=True))
 
 
@@ -41,7 +52,11 @@ def _in_batches(items: list, size: int = 1000):
 
 
 def add_chunks(
-    chunks: list[Chunk], source: str, on_progress: Callable[[int, int], None] | None = None
+    chunks: list[Chunk],
+    source: str,
+    on_progress: Callable[[int, int], None] | None = None,
+    *,
+    collection_name: str | None = None,
 ) -> int:
     """Index the sections of one file, saving progress as it goes.
 
@@ -57,9 +72,9 @@ def add_chunks(
     """
     if not chunks:
         raise ValueError(f"No text to store for {source!r} (is it a scanned/image-only PDF?)")
-    collection = get_collection()
+    collection = get_collection(collection_name)
     total = len(chunks)
-    existing = _stored_texts(source)
+    existing = _stored_texts(source, collection_name)
     todo = [c for c in chunks if existing.get(c.id) != c.text]
     reused = [c for c in chunks if existing.get(c.id) == c.text]
     if on_progress:
@@ -93,16 +108,16 @@ def add_chunks(
     return total
 
 
-def search(vector: list[float], per_source_k: int) -> list[Hit]:
+def search(vector: list[float], per_source_k: int, *, collection_name: str | None = None) -> list[Hit]:
     """Return the closest chunks to `vector` from EACH stored file, closest first overall.
 
     Searching every file separately (rather than taking the global top few) means a broad
     question like "what is this about?" hears from all documents instead of just whichever
     one happens to have the single closest passages.
     """
-    collection = get_collection()
+    collection = get_collection(collection_name)
     hits: list[Hit] = []
-    for source, n_chunks in list_sources().items():
+    for source, n_chunks in list_sources(collection_name=collection_name).items():
         result = collection.query(
             query_embeddings=[vector],
             n_results=min(per_source_k, n_chunks),
@@ -117,9 +132,9 @@ def search(vector: list[float], per_source_k: int) -> list[Hit]:
     return sorted(hits, key=lambda h: h.distance)
 
 
-def delete_all() -> int:
+def delete_all(*, collection_name: str | None = None) -> int:
     """Remove everything that has been stored. Returns how many chunks were removed."""
-    collection = get_collection()
+    collection = get_collection(collection_name)
     ids = collection.get(include=[])["ids"]
     for batch in _in_batches(ids):
         collection.delete(ids=batch)
@@ -127,18 +142,18 @@ def delete_all() -> int:
     return len(ids)
 
 
-def delete_source(source: str) -> int:
+def delete_source(source: str, *, collection_name: str | None = None) -> int:
     """Remove every chunk stored for one file. Returns how many were removed."""
-    collection = get_collection()
+    collection = get_collection(collection_name)
     before = collection.count()
     collection.delete(where={"source": source})
     return before - collection.count()
 
 
-def list_documents() -> list[dict]:
+def list_documents(*, collection_name: str | None = None) -> list[dict]:
     """One entry per stored file, sorted by name: its chunk count and how many pages have text."""
     docs: dict[str, dict] = {}
-    for meta in get_collection().get(include=["metadatas"])["metadatas"]:
+    for meta in get_collection(collection_name).get(include=["metadatas"])["metadatas"]:
         doc = docs.setdefault(
             meta["source"], {"source": meta["source"], "chunks": 0, "pages": set(), "expected": 0}
         )
@@ -161,6 +176,6 @@ def list_documents() -> list[dict]:
     )
 
 
-def list_sources() -> dict[str, int]:
+def list_sources(*, collection_name: str | None = None) -> dict[str, int]:
     """Map each stored file name to its number of chunks."""
-    return {d["source"]: d["chunks"] for d in list_documents()}
+    return {d["source"]: d["chunks"] for d in list_documents(collection_name=collection_name)}

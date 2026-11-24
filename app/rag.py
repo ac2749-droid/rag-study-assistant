@@ -100,9 +100,12 @@ def standalone_question(question: str, history: Sequence[Turn]) -> str:
     return rewritten[:MAX_REWRITE_CHARS] or question
 
 
-def answer_question(question: str, history: Sequence[Turn] = ()) -> Answer:
+def answer_question(
+    question: str, history: Sequence[Turn] = (), *, collection_name: str | None = None
+) -> Answer:
+    """Answer from ONE user's library (`collection_name`); nobody else's documents are ever consulted."""
     settings = get_settings()
-    if store.get_collection().count() == 0:
+    if store.get_collection(collection_name).count() == 0:
         raise NoMaterialError("No material has been ingested yet.")
 
     recent = list(history)[-HISTORY_TURNS:]
@@ -111,7 +114,7 @@ def answer_question(question: str, history: Sequence[Turn] = ()) -> Answer:
         log.info("follow-up rewritten for search")
 
     query_vector = gemini.embed_texts([search_text], "RETRIEVAL_QUERY")[0]
-    candidates = store.search(query_vector, settings.per_source_k)
+    candidates = store.search(query_vector, settings.per_source_k, collection_name=collection_name)
     hits = [h for h in candidates if h.distance <= settings.max_distance][: settings.top_k]
     log.info("question retrieved %d relevant chunks", len(hits))
     if not hits:  # nothing relevant: skip the LLM call and don't list unrelated pages

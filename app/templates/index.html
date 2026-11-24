@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{APP_NAME}}</title>
+<meta name="description" content="Ask questions about your own documents and get answers with page references. For studying and for work.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 28 28'%3E%3Crect width='28' height='28' rx='7' fill='%233b5bdb'/%3E%3Cpath d='M9 9h10M9 14h10M9 19h6' stroke='white' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+
+<!-- Sign-in / first-time setup. Shown until someone is signed in. -->
+<div id="authView" class="auth-view" hidden>
+  <form id="authForm" class="auth-card" autocomplete="on" novalidate>
+    <div class="auth-brand"><span id="authMark" aria-hidden="true"></span><span class="auth-title">{{APP_NAME}}</span></div>
+    <p id="authLead" class="auth-lead"></p>
+    <label for="authUser">Username</label>
+    <input id="authUser" name="username" autocomplete="username" maxlength="64" autocapitalize="none" spellcheck="false">
+    <label for="authPass">Password</label>
+    <input id="authPass" name="password" type="password" autocomplete="current-password" maxlength="200">
+    <div id="authConfirmRow" hidden>
+      <label for="authConfirm">Confirm password</label>
+      <input id="authConfirm" type="password" autocomplete="new-password" maxlength="200">
+    </div>
+    <p id="authHint" class="auth-hint" hidden>Use at least 10 characters. A few random words make a strong, memorable password.</p>
+    <p id="authError" class="auth-error" role="alert"></p>
+    <button id="authSubmit" class="btn primary block" type="submit"></button>
+  </form>
+  <p class="auth-foot">Your documents are stored on this computer and only you can see them.</p>
+</div>
+
+<div id="app" class="shell" hidden>
+  <header class="topbar">
+    <button id="menuBtn" class="icon-btn menu-btn" type="button" aria-label="Show documents" aria-controls="sidebar"></button>
+    <div class="brand">
+      <span class="brand-mark" id="brandMark" aria-hidden="true"></span>
+      <div class="brand-text">
+        <h1 class="brand-name">{{APP_NAME}}</h1>
+        <div class="brand-sub">Answers from your own documents, for studying and for work</div>
+      </div>
+    </div>
+    <button id="newChat" class="btn sm" type="button" hidden></button>
+    <div class="user-menu">
+      <button id="userBtn" class="btn sm" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="userPanel"></button>
+      <div id="userPanel" class="menu-panel" hidden>
+        <div class="menu-who">Signed in as <strong id="whoName"></strong> <span id="whoRole" class="pill"></span></div>
+        <button id="adminBtn" class="menu-item" type="button" hidden>Users and activity</button>
+        <button id="passwordBtn" class="menu-item" type="button">Change password</button>
+        <button id="logoutBtn" class="menu-item" type="button">Sign out</button>
+      </div>
+    </div>
+  </header>
+
+  <div class="body" id="body">
+    <aside id="sidebar" class="sidebar" aria-label="Documents">
+      <div class="side-head"><h2>Documents</h2><span id="docCount" class="pill"></span></div>
+      <button id="addBtn" class="btn primary block" type="button"></button>
+      <input type="file" id="file" accept="application/pdf,.pdf" multiple hidden>
+      <p class="fine-print tight">Big documents are indexed in the background, so you can keep
+        asking questions. On Gemini's free plan a 300-page manual takes about 5 minutes.</p>
+
+      <div id="jobs" class="jobs" role="status" aria-live="polite"></div>
+
+      <ul id="docs" class="doclist"></ul>
+      <div id="emptyDocs" class="empty-docs" hidden>
+        <strong>No documents yet</strong>
+        Add PDFs such as lecture slides, textbooks, manuals or policies. You can also drag them in.
+      </div>
+
+      <div class="side-foot">
+        <div id="removeAllRow"></div>
+        <p class="fine-print">Your documents are private to your account and stored on this computer. Text from
+          them is sent to Google's Gemini service to create answers, so only add files you are allowed to
+          share with it. <a href="/docs">API documentation</a></p>
+      </div>
+    </aside>
+
+    <main class="main">
+      <div class="chat-scroll" id="chatScroll">
+        <div id="chat" class="chat" role="log" aria-live="polite" aria-label="Conversation">
+          <section id="welcome" class="welcome"></section>
+        </div>
+      </div>
+      <div class="composer-wrap">
+        <form id="composer" class="composer" autocomplete="off">
+          <div class="composer-box">
+            <textarea id="question" rows="1" maxlength="2000" aria-label="Your question"></textarea>
+            <button id="send" class="send" type="submit" aria-label="Send question" disabled></button>
+          </div>
+        </form>
+        <p class="hint">Enter to send, Shift+Enter for a new line. Follow-up questions work. AI answers can be
+          wrong, so check the cited pages.</p>
+      </div>
+    </main>
+    <div class="drop-overlay" aria-hidden="true">Drop PDFs to add them</div>
+  </div>
+</div>
+
+<div id="scrim" class="scrim"></div>
+
+<!-- Dialogs -->
+<div id="modalScrim" class="modal-scrim" hidden>
+  <section id="passwordModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="pwTitle" hidden>
+    <div class="modal-head"><h2 id="pwTitle">Change password</h2></div>
+    <form id="passwordForm" autocomplete="off" novalidate>
+      <label for="pwCurrent">Current password</label>
+      <input id="pwCurrent" type="password" autocomplete="current-password" maxlength="200">
+      <label for="pwNew">New password</label>
+      <input id="pwNew" type="password" autocomplete="new-password" maxlength="200">
+      <label for="pwConfirm">Confirm new password</label>
+      <input id="pwConfirm" type="password" autocomplete="new-password" maxlength="200">
+      <p id="pwError" class="auth-error" role="alert"></p>
+      <div class="modal-actions">
+        <button id="pwCancel" class="btn" type="button">Cancel</button>
+        <button class="btn primary" type="submit">Save password</button>
+      </div>
+    </form>
+  </section>
+
+  <section id="adminModal" class="modal wide" role="dialog" aria-modal="true" aria-labelledby="adminTitle" hidden>
+    <div class="modal-head">
+      <h2 id="adminTitle">Users and activity</h2>
+      <button id="adminClose" class="icon-btn" type="button" aria-label="Close"></button>
+    </div>
+    <div class="tabs" role="tablist">
+      <button id="tabUsers" class="tab" role="tab" type="button" aria-selected="true">Users</button>
+      <button id="tabAudit" class="tab" role="tab" type="button" aria-selected="false">Activity log</button>
+    </div>
+    <div id="usersPane">
+      <form id="newUserForm" class="inline-form" autocomplete="off" novalidate>
+        <input id="nuName" placeholder="New username" aria-label="New username" maxlength="64" autocapitalize="none" spellcheck="false">
+        <input id="nuPass" type="password" placeholder="Password (10+ characters)" aria-label="Password for the new user" autocomplete="new-password" maxlength="200">
+        <select id="nuRole" aria-label="Role"><option value="user">User</option><option value="admin">Administrator</option></select>
+        <button class="btn primary" type="submit">Add user</button>
+      </form>
+      <p id="adminError" class="auth-error" role="alert"></p>
+      <ul id="userList" class="user-list"></ul>
+    </div>
+    <div id="auditPane" hidden>
+      <div class="table-wrap">
+        <table class="audit">
+          <thead><tr><th>When</th><th>Who</th><th>What</th><th>Details</th></tr></thead>
+          <tbody id="auditBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+</div>
+
+<div id="toasts" class="toasts" aria-live="polite"></div>
+
+<script src="/static/app.js" defer></script>
+</body>
+</html>

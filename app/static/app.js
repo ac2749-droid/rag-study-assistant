@@ -1,302 +1,3 @@
-<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>{{APP_NAME}}</title>
-<meta name="description" content="Ask questions about your own documents and get answers with page references. For studying and for work.">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 28 28'%3E%3Crect width='28' height='28' rx='7' fill='%233b5bdb'/%3E%3Cpath d='M9 9h10M9 14h10M9 19h6' stroke='white' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E">
-<style>
-  :root {
-    --bg: #f6f7f9; --surface: #ffffff; --surface-2: #f1f3f6; --border: #e3e6ec; --border-strong: #cfd4dd;
-    --text: #101828; --muted: #5b6579; --faint: #8a93a5;
-    --accent: #3b5bdb; --accent-hover: #2f4ac0; --accent-text: #ffffff; --accent-soft: #eaeffd;
-    --danger: #c0352b; --danger-soft: #fdeceb; --success: #1a7f4b; --success-soft: #e6f5ec;
-    --code-bg: #f0f2f6; --radius: 12px; --topbar-h: 60px;
-    --shadow-sm: 0 1px 2px rgba(16, 24, 40, .06);
-    --shadow-md: 0 4px 16px rgba(16, 24, 40, .10);
-  }
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --bg: #0e1116; --surface: #161a22; --surface-2: #1d222c; --border: #262c38; --border-strong: #353d4d;
-      --text: #e8ebf1; --muted: #9aa3b5; --faint: #707a8d;
-      --accent: #7c93f5; --accent-hover: #93a6f7; --accent-text: #0e1116; --accent-soft: #212a4a;
-      --danger: #f2877f; --danger-soft: #3a2220; --success: #5cc58d; --success-soft: #16301f;
-      --code-bg: #10131a; --shadow-sm: none; --shadow-md: 0 4px 16px rgba(0, 0, 0, .45);
-    }
-  }
-  * { box-sizing: border-box; }
-  [hidden] { display: none !important; }  /* our button/flex styles must never override "hidden" */
-  html, body { height: 100%; }
-  body {
-    margin: 0; background: var(--bg); color: var(--text);
-    font: 15.5px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
-    -webkit-font-smoothing: antialiased;
-  }
-  .shell { height: 100vh; height: 100dvh; display: flex; flex-direction: column; }
-  svg { flex: none; }
-
-  /* ---------- buttons ---------- */
-  button { font: inherit; color: inherit; cursor: pointer; }
-  .btn {
-    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
-    border: 1px solid var(--border-strong); background: var(--surface); color: var(--text);
-    border-radius: 9px; padding: 8px 14px; font-weight: 550; font-size: .92rem; line-height: 1.2;
-    transition: background-color .12s, border-color .12s, box-shadow .12s;
-  }
-  .btn:hover:not(:disabled) { background: var(--surface-2); }
-  .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
-  .btn.primary:hover:not(:disabled) { background: var(--accent-hover); border-color: var(--accent-hover); }
-  .btn.danger { background: var(--danger); border-color: var(--danger); color: #fff; }
-  .btn.danger:hover:not(:disabled) { filter: brightness(.94); background: var(--danger); }
-  .btn.sm { padding: 5px 11px; font-size: .84rem; }
-  .btn.block { width: 100%; }
-  .btn:disabled, .icon-btn:disabled { opacity: .5; cursor: not-allowed; }
-  .icon-btn {
-    display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px;
-    border: 0; border-radius: 8px; background: none; color: var(--faint);
-    transition: background-color .12s, color .12s;
-  }
-  .icon-btn:hover:not(:disabled) { background: var(--surface-2); color: var(--text); }
-  .icon-btn.danger:hover:not(:disabled) { background: var(--danger-soft); color: var(--danger); }
-  .link-btn { border: 0; background: none; padding: 4px 0; color: var(--muted); font-size: .86rem;
-    display: inline-flex; align-items: center; gap: 6px; }
-  .link-btn:hover:not(:disabled) { color: var(--danger); }
-  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-
-  /* ---------- top bar ---------- */
-  .topbar {
-    height: var(--topbar-h); flex: none; display: flex; align-items: center; gap: 12px;
-    padding: 0 20px; background: var(--surface); border-bottom: 1px solid var(--border);
-  }
-  .brand { display: flex; align-items: center; gap: 12px; min-width: 0; flex: 1; }
-  .brand-mark { color: var(--accent); }
-  .brand-name { margin: 0; font-weight: 650; font-size: 1.05rem; line-height: 1.2; letter-spacing: -.01em; white-space: nowrap;
-    overflow: hidden; text-overflow: ellipsis; }
-  .brand-sub { color: var(--muted); font-size: .8rem; line-height: 1.2; white-space: nowrap; overflow: hidden;
-    text-overflow: ellipsis; }
-  .menu-btn { display: none; }
-  .banner { flex: none; background: var(--danger); color: #fff; padding: 12px 20px; font-weight: 600; }
-  .banner a { color: inherit; }
-
-  /* ---------- layout ---------- */
-  .body { flex: 1; min-height: 0; display: grid; grid-template-columns: 330px 1fr; position: relative; }
-  .sidebar {
-    min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 14px;
-    padding: 20px 18px; background: var(--surface); border-right: 1px solid var(--border);
-  }
-  .main { min-width: 0; min-height: 0; display: flex; flex-direction: column; }
-  .chat-scroll { flex: 1; min-height: 0; overflow-y: auto; scroll-behavior: smooth; }
-  .chat { max-width: 800px; margin: 0 auto; padding: 28px 22px 12px; display: flex; flex-direction: column; gap: 18px; }
-
-  /* ---------- sidebar ---------- */
-  .side-head { display: flex; align-items: center; justify-content: space-between; }
-  .side-head h2 { margin: 0; font-size: .78rem; text-transform: uppercase; letter-spacing: .07em; color: var(--muted); font-weight: 650; }
-  .pill { background: var(--surface-2); color: var(--muted); border-radius: 999px; padding: 1px 9px;
-    font-size: .78rem; font-weight: 600; }
-  .pill:empty { display: none; }
-  .doclist { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
-  .doc {
-    display: flex; align-items: center; gap: 10px; padding: 9px 8px 9px 10px; border-radius: 10px;
-    border: 1px solid var(--border); background: var(--surface);
-  }
-  .doc:hover { border-color: var(--border-strong); }
-  .doc .file-icon { color: var(--accent); background: var(--accent-soft); border-radius: 8px; width: 32px; height: 32px;
-    display: inline-flex; align-items: center; justify-content: center; }
-  .doc-info { flex: 1; min-width: 0; }
-  .doc-name { font-size: .9rem; font-weight: 550; line-height: 1.3; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .doc-meta { color: var(--faint); font-size: .78rem; }
-  .doc-meta.warn { color: var(--danger); font-weight: 600; }
-  .doc.confirm { background: var(--danger-soft); border-color: var(--danger); gap: 8px; }
-  .doc.confirm .doc-name { color: var(--danger); }
-  .empty-docs { border: 1px dashed var(--border-strong); border-radius: 10px; padding: 16px; color: var(--muted);
-    font-size: .88rem; text-align: center; }
-  .empty-docs strong { color: var(--text); display: block; margin-bottom: 4px; }
-  .jobs { display: flex; flex-direction: column; gap: 8px; }
-  .jobs:empty { display: none; }
-  .job { background: var(--accent-soft); border-radius: 10px; padding: 11px 14px; font-size: .86rem; }
-  .job-name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .job-meta { color: var(--muted); margin-top: 2px; }
-  .bar { height: 5px; border-radius: 5px; background: var(--border); margin-top: 9px; overflow: hidden; }
-  .bar > div { height: 100%; background: var(--accent); border-radius: 5px; transition: width .4s ease; }
-  .bar.waiting > div { width: 35%; animation: slide 1.3s ease-in-out infinite; }
-  @keyframes slide { 0% { transform: translateX(-100%); } 100% { transform: translateX(300%); } }
-  .side-foot { margin-top: auto; padding-top: 14px; border-top: 1px solid var(--border); display: flex;
-    flex-direction: column; gap: 10px; }
-  .remove-all-confirm { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: .86rem; color: var(--danger); }
-  .fine-print { color: var(--faint); font-size: .76rem; line-height: 1.45; margin: 0; }
-  .fine-print a { color: var(--muted); }
-
-  /* drag and drop overlay */
-  .drop-overlay { position: absolute; inset: 10px; z-index: 20; display: none; align-items: center; justify-content: center;
-    border: 2px dashed var(--accent); border-radius: 16px; background: color-mix(in srgb, var(--accent-soft) 92%, transparent);
-    color: var(--accent); font-weight: 650; font-size: 1.1rem; pointer-events: none; }
-  .body.dragging .drop-overlay { display: flex; }
-
-  /* ---------- welcome ---------- */
-  .welcome { padding: 28px 0 8px; text-align: center; }
-  .welcome h3 { font-size: 1.55rem; letter-spacing: -.02em; margin: 0 0 6px; line-height: 1.25; }
-  .welcome > p { color: var(--muted); margin: 0 auto 24px; max-width: 560px; }
-  .cases { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; text-align: left; }
-  .case { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 18px; box-shadow: var(--shadow-sm); }
-  .case-head { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
-  .case-icon { width: 38px; height: 38px; border-radius: 10px; background: var(--accent-soft); color: var(--accent);
-    display: inline-flex; align-items: center; justify-content: center; }
-  .case h4 { margin: 0; font-size: 1rem; line-height: 1.25; }
-  .case-head p { margin: 2px 0 0; color: var(--muted); font-size: .84rem; line-height: 1.35; }
-  .examples { display: flex; flex-direction: column; gap: 8px; }
-  .example { text-align: left; border: 1px solid var(--border); background: var(--surface); border-radius: 9px;
-    padding: 9px 12px; font-size: .9rem; transition: border-color .12s, background-color .12s; }
-  .example:hover:not(:disabled) { border-color: var(--accent); background: var(--accent-soft); }
-  .example:disabled { opacity: .55; cursor: default; }
-  .steps { margin: 20px auto 0; display: flex; justify-content: center; }
-
-  /* ---------- messages ---------- */
-  .msg { display: flex; gap: 12px; }
-  .msg.user { justify-content: flex-end; }
-  .avatar { width: 30px; height: 30px; border-radius: 9px; background: var(--accent); color: var(--accent-text);
-    display: inline-flex; align-items: center; justify-content: center; flex: none; margin-top: 2px; }
-  .bubble { overflow-wrap: anywhere; min-width: 0; }
-  .user .bubble { max-width: 82%; background: var(--accent); color: var(--accent-text); padding: 10px 15px;
-    border-radius: 16px 16px 4px 16px; white-space: pre-wrap; }
-  .bot .bubble { flex: 1; background: var(--surface); border: 1px solid var(--border); border-radius: 4px 16px 16px 16px;
-    padding: 14px 16px; box-shadow: var(--shadow-sm); }
-  .bot.error .bubble { background: var(--danger-soft); border-color: var(--danger); color: var(--danger); }
-  .answer { white-space: pre-wrap; }
-  .answer pre { background: var(--code-bg); border: 1px solid var(--border); border-radius: 9px; padding: 12px 14px;
-    overflow-x: auto; white-space: pre; font-size: .87rem; margin: 10px 0; }
-  .answer code { background: var(--code-bg); padding: 1px 6px; border-radius: 5px; font-size: .88em;
-    font-family: ui-monospace, "Cascadia Code", "SF Mono", Consolas, monospace; }
-  .answer pre code { background: none; padding: 0; }
-  .answer hr { border: 0; border-top: 1px solid var(--border); margin: 12px 0; }
-  .sources { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border); display: flex; flex-wrap: wrap;
-    align-items: center; gap: 6px 8px; }
-  .sources-label { color: var(--faint); font-size: .74rem; text-transform: uppercase; letter-spacing: .06em; font-weight: 650; }
-  .chip { display: inline-flex; align-items: center; gap: 6px; max-width: 100%; background: var(--accent-soft);
-    color: var(--accent); border-radius: 8px; padding: 3px 10px; font-size: .8rem; font-weight: 550; }
-  .chip span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .actions { margin-left: auto; }
-  .typing { display: inline-flex; gap: 5px; padding: 6px 2px; }
-  .typing span { width: 7px; height: 7px; border-radius: 50%; background: var(--faint); animation: blink 1.2s infinite; }
-  .typing span:nth-child(2) { animation-delay: .2s; }
-  .typing span:nth-child(3) { animation-delay: .4s; }
-  @keyframes blink { 0%, 80%, 100% { opacity: .25; } 40% { opacity: 1; } }
-
-  /* ---------- composer ---------- */
-  .composer-wrap { flex: none; padding: 6px 22px 10px; background: linear-gradient(to bottom, transparent, var(--bg) 30%); }
-  .composer { max-width: 800px; margin: 0 auto; }
-  .composer-box { display: flex; align-items: flex-end; gap: 10px; background: var(--surface); border: 1px solid var(--border-strong);
-    border-radius: 16px; padding: 9px 9px 9px 16px; box-shadow: var(--shadow-md); transition: border-color .12s, box-shadow .12s; }
-  .composer-box:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft), var(--shadow-md); }
-  textarea { flex: 1; resize: none; border: 0; outline: 0; background: none; color: var(--text); font: inherit;
-    line-height: 1.5; padding: 7px 0; max-height: 160px; }
-  textarea::placeholder { color: var(--faint); }
-  .send { width: 38px; height: 38px; border-radius: 11px; border: 0; background: var(--accent); color: var(--accent-text);
-    display: inline-flex; align-items: center; justify-content: center; flex: none; transition: background-color .12s; }
-  .send:hover:not(:disabled) { background: var(--accent-hover); }
-  .send:disabled { background: var(--surface-2); color: var(--faint); cursor: not-allowed; opacity: 1; }
-  .hint { max-width: 800px; margin: 8px auto 0; text-align: center; color: var(--faint); font-size: .76rem; line-height: 1.45; }
-
-  /* ---------- toasts ---------- */
-  .toasts { position: fixed; right: 18px; bottom: 18px; z-index: 60; display: flex; flex-direction: column; gap: 10px;
-    max-width: min(380px, calc(100vw - 36px)); }
-  .toast { display: flex; align-items: flex-start; gap: 10px; background: var(--surface); border: 1px solid var(--border);
-    border-left: 4px solid var(--success); border-radius: 10px; padding: 11px 14px; box-shadow: var(--shadow-md);
-    font-size: .9rem; white-space: pre-line; animation: rise .18s ease-out; }
-  .toast.error { border-left-color: var(--danger); }
-  .toast .msg-text { flex: 1; overflow-wrap: anywhere; }
-  @keyframes rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
-
-  .scrim { display: none; }
-
-  /* ---------- small screens ---------- */
-  @media (max-width: 860px) {
-    .body { grid-template-columns: 1fr; }
-    .menu-btn { display: inline-flex; color: var(--text); }
-    .sidebar { position: fixed; z-index: 40; top: var(--topbar-h); bottom: 0; left: 0; width: min(88vw, 360px);
-      transform: translateX(-102%); transition: transform .2s ease; box-shadow: var(--shadow-md); }
-    .sidebar.open { transform: none; }
-    .scrim.show { display: block; position: fixed; z-index: 30; inset: var(--topbar-h) 0 0 0; background: rgba(10, 14, 22, .45); }
-    .cases { grid-template-columns: 1fr; }
-    .topbar { padding: 0 12px; }
-    .brand-sub { display: none; }
-    .chat { padding: 18px 14px 8px; }
-    .composer-wrap { padding: 6px 12px 8px; }
-    .welcome h3 { font-size: 1.3rem; }
-    .toasts { left: 12px; right: 12px; max-width: none; }
-  }
-  @media (prefers-reduced-motion: reduce) {
-    * { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
-  }
-</style>
-</head>
-<body>
-<div class="shell">
-  <header class="topbar">
-    <button id="menuBtn" class="icon-btn menu-btn" type="button" aria-label="Show documents" aria-controls="sidebar"></button>
-    <div class="brand">
-      <span class="brand-mark" id="brandMark" aria-hidden="true"></span>
-      <div style="min-width:0">
-        <h1 class="brand-name">{{APP_NAME}}</h1>
-        <div class="brand-sub">Answers from your own documents, for studying and for work</div>
-      </div>
-    </div>
-    <button id="newChat" class="btn sm" type="button" hidden></button>
-  </header>
-
-  <div id="notServed" class="banner" hidden>
-    You are looking at a preview of the page file, not the running app, so nothing on this page can work.
-    Open <a href="http://127.0.0.1:8000">http://127.0.0.1:8000</a> in your browser instead.
-  </div>
-
-  <div class="body" id="body">
-    <aside id="sidebar" class="sidebar" aria-label="Documents">
-      <div class="side-head"><h2>Documents</h2><span id="docCount" class="pill"></span></div>
-      <button id="addBtn" class="btn primary block" type="button"></button>
-      <input type="file" id="file" accept="application/pdf,.pdf" multiple hidden>
-      <p class="fine-print" style="margin-top:-6px">Big documents are indexed in the background, so you can keep
-        asking questions. On Gemini's free plan a 300-page manual takes about 5 minutes.</p>
-
-      <div id="jobs" class="jobs" role="status" aria-live="polite"></div>
-
-      <ul id="docs" class="doclist"></ul>
-      <div id="emptyDocs" class="empty-docs" hidden>
-        <strong>No documents yet</strong>
-        Add PDFs such as lecture slides, textbooks, manuals or policies. You can also drag them in.
-      </div>
-
-      <div class="side-foot">
-        <div id="removeAllRow"></div>
-        <p class="fine-print">Documents are stored on this computer. Text from them is sent to Google's Gemini
-          service to create answers, so only add files you are allowed to share with it.
-          <a href="/docs">API documentation</a></p>
-      </div>
-    </aside>
-
-    <main class="main">
-      <div class="chat-scroll" id="chatScroll">
-        <div id="chat" class="chat" role="log" aria-live="polite" aria-label="Conversation">
-          <section id="welcome" class="welcome"></section>
-        </div>
-      </div>
-      <div class="composer-wrap">
-        <form id="composer" class="composer" autocomplete="off">
-          <div class="composer-box">
-            <textarea id="question" rows="1" maxlength="2000" aria-label="Your question"></textarea>
-            <button id="send" class="send" type="submit" aria-label="Send question" disabled></button>
-          </div>
-        </form>
-        <p class="hint">Enter to send, Shift+Enter for a new line. Follow-up questions work. AI answers can be
-          wrong, so check the cited pages.</p>
-      </div>
-    </main>
-    <div class="drop-overlay" aria-hidden="true">Drop PDFs to add them</div>
-  </div>
-</div>
-<div id="scrim" class="scrim"></div>
-<div id="toasts" class="toasts" aria-live="polite"></div>
-
-<script>
 const $ = (id) => document.getElementById(id);
 const SVG_NS = "http://www.w3.org/2000/svg";
 const MEMORY_TURNS = 6;   // how many earlier exchanges are sent along with each question
@@ -369,16 +70,22 @@ function withIcon(button, name, label, size = 17) {
   button.replaceChildren(icon(name, size), document.createTextNode(label));
 }
 
-async function api(path, options) {
+async function api(path, options = {}) {
+  const method = (options.method || "GET").toUpperCase();
+  const headers = { ...(options.headers || {}) };
+  // Anything that changes data carries this header: a page on another website can't add it, which is
+  // what stops other sites from sending requests on your behalf.
+  if (method !== "GET" && method !== "HEAD") headers["X-Requested-With"] = "XMLHttpRequest";
   let response;
   try {
-    response = await fetch(path, options);
+    response = await fetch(path, { ...options, headers, credentials: "same-origin" });
   } catch {
     throw new Error("Can't reach the server. Is it still running?");
   }
   let data = null;
   try { data = await response.json(); } catch { /* not JSON */ }
   if (!response.ok) {
+    if (response.status === 401 && !path.startsWith("/auth/")) sessionEnded();
     const detail = data && data.detail;
     throw new Error(typeof detail === "string" ? detail : "Something went wrong. Please check your input and try again.");
   }
@@ -391,7 +98,7 @@ function toast(message, kind = "success") {
   const close = el("button", "icon-btn");
   close.type = "button";
   close.setAttribute("aria-label", "Dismiss");
-  close.style.cssText = "width:24px;height:24px;margin:-3px -6px 0 0";
+  close.classList.add("toast-close");
   close.append(icon("x", 14));
   const dismiss = () => box.remove();
   close.addEventListener("click", dismiss);
@@ -430,8 +137,7 @@ function renderDocs() {
     if (pendingRemove === doc.source) {
       item.classList.add("confirm");
       const info = el("div", "doc-info");
-      info.append(el("div", "doc-name", "Remove this file?"), el("div", "doc-meta", doc.source));
-      info.querySelector(".doc-meta").style.cssText = "overflow:hidden;text-overflow:ellipsis;white-space:nowrap";
+      info.append(el("div", "doc-name", "Remove this file?"), el("div", "doc-meta ellipsis", doc.source));
       const yes = el("button", "btn danger sm", "Remove");
       yes.type = "button";
       yes.disabled = removing;
@@ -911,8 +617,339 @@ document.addEventListener("keydown", (event) => {
   if (pendingRemove || confirmAll) { pendingRemove = null; confirmAll = false; renderDocs(); renderRemoveAll(); }
 });
 
+/* ---------- accounts: sign-in, account menu, password, administration ---------- */
+let currentUser = null;
+let authMode = "login";  // "login", or "setup" when no account exists yet
+let endingSession = false;
+
+const ACTION_LABELS = {
+  setup: "Created the administrator account", login: "Signed in", login_failed: "Failed sign-in attempt",
+  logout: "Signed out", password_changed: "Changed password", user_created: "Created a user",
+  user_updated: "Updated a user", user_deleted: "Deleted a user", upload: "Added a document",
+  document_removed: "Removed a document", documents_removed_all: "Removed all documents",
+  ask: "Asked a question", indexing_done: "Finished indexing", indexing_failed: "Indexing stopped",
+};
+
+function setAuthError(message) { $("authError").textContent = message; }
+
+function resetSessionState() {
+  // Forget everything belonging to the person who was signed in (so the next person sees none of it).
+  history = [];
+  docs = [];
+  hasDocs = false;
+  tracked.clear();
+  activeJobs = [];
+  reading = null;
+  if (pollTimer !== null) { clearTimeout(pollTimer); pollTimer = null; }
+  pendingRemove = null;
+  confirmAll = false;
+  busy = false;
+  uploading = false;
+  newChat();
+  $("question").value = "";
+  $("toasts").replaceChildren();
+  // The administrator's panels and every form field: nothing of the last person may be left in the page.
+  userUi.clear();
+  $("userList").replaceChildren();
+  $("auditBody").replaceChildren();
+  $("adminError").textContent = "";
+  $("pwError").textContent = "";
+  for (const id of ["nuName", "nuPass", "pwCurrent", "pwNew", "pwConfirm"]) $(id).value = "";
+  renderDocs();
+  renderRemoveAll();
+  renderWelcome();
+  renderJobs();
+  updateControls();
+}
+
+function showAuth(mode, notice = "") {
+  authMode = mode;
+  currentUser = null;
+  closeModals();
+  setUserMenu(false);
+  setDrawer(false);
+  $("app").hidden = true;
+  $("authView").hidden = false;
+  const setup = mode === "setup";
+  $("authLead").textContent = setup
+    ? "Welcome! Create the administrator account to get started. You can add other people from the account menu later."
+    : "Sign in to continue.";
+  $("authSubmit").textContent = setup ? "Create account" : "Sign in";
+  $("authConfirmRow").hidden = !setup;
+  $("authHint").hidden = !setup;
+  $("authPass").autocomplete = setup ? "new-password" : "current-password";
+  $("authPass").value = "";
+  $("authConfirm").value = "";
+  setAuthError(notice);
+  $("authUser").focus();
+}
+
+async function enterApp(user) {
+  currentUser = user;
+  $("userBtn").textContent = user.username;
+  $("whoName").textContent = user.username;
+  $("whoRole").textContent = user.role === "admin" ? "Administrator" : "User";
+  $("adminBtn").hidden = user.role !== "admin";
+  $("authView").hidden = true;
+  $("app").hidden = false;
+  renderWelcome();
+  updateControls();
+  try {
+    await refreshDocs();
+    if (!hasDocs && isMobile()) setDrawer(true);
+    await resumeJobs();
+  } catch (err) {
+    toast(err.message, "error");
+  }
+}
+
+function sessionEnded() {
+  // Any request answered "please sign in" (an expired or revoked session) lands here.
+  if (endingSession || currentUser === null) return;
+  endingSession = true;
+  resetSessionState();
+  showAuth("login", "Your session has ended. Please sign in again.");
+  endingSession = false;
+}
+
+$("authForm").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const username = $("authUser").value.trim();
+  const password = $("authPass").value;
+  if (!username || !password) { setAuthError("Enter your username and password."); return; }
+  if (authMode === "setup" && password !== $("authConfirm").value) {
+    setAuthError("The two passwords don't match.");
+    return;
+  }
+  $("authSubmit").disabled = true;
+  setAuthError("");
+  try {
+    const status = await api(authMode === "setup" ? "/auth/setup" : "/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username, password }),
+    });
+    $("authPass").value = "";
+    $("authConfirm").value = "";
+    await enterApp(status.user);
+  } catch (err) {
+    setAuthError(err.message);
+    $("authPass").value = "";
+  } finally {
+    $("authSubmit").disabled = false;
+  }
+});
+
+async function signOut() {
+  setUserMenu(false);
+  try { await api("/auth/logout", { method: "POST" }); } catch { /* signed out locally either way */ }
+  resetSessionState();
+  currentUser = null;
+  showAuth("login", "");
+  $("authUser").value = "";  // on purpose: don't leave the last username on a shared computer
+}
+
+/* --- account menu --- */
+function setUserMenu(open) {
+  $("userPanel").hidden = !open;
+  $("userBtn").setAttribute("aria-expanded", String(open));
+}
+$("userBtn").addEventListener("click", (event) => { event.stopPropagation(); setUserMenu($("userPanel").hidden); });
+document.addEventListener("click", (event) => {
+  if (!$("userPanel").hidden && !event.target.closest(".user-menu")) setUserMenu(false);
+});
+$("logoutBtn").addEventListener("click", signOut);
+
+/* --- dialogs --- */
+function openModal(id) {
+  $("modalScrim").hidden = false;
+  for (const modal of document.querySelectorAll(".modal")) modal.hidden = modal.id !== id;
+  const first = $(id).querySelector("input, button");
+  if (first) first.focus();
+}
+function closeModals() {
+  $("modalScrim").hidden = true;
+  for (const modal of document.querySelectorAll(".modal")) modal.hidden = true;
+}
+$("modalScrim").addEventListener("click", (event) => { if (event.target === $("modalScrim")) closeModals(); });
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape") { closeModals(); setUserMenu(false); }
+});
+
+/* --- change password --- */
+$("passwordBtn").addEventListener("click", () => {
+  setUserMenu(false);
+  $("pwError").textContent = "";
+  openModal("passwordModal");
+});
+$("pwCancel").addEventListener("click", closeModals);
+$("passwordForm").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const next = $("pwNew").value;
+  if (next !== $("pwConfirm").value) { $("pwError").textContent = "The new passwords don't match."; return; }
+  try {
+    await api("/auth/password", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ current_password: $("pwCurrent").value, new_password: next }),
+    });
+    for (const id of ["pwCurrent", "pwNew", "pwConfirm"]) $(id).value = "";
+    closeModals();
+    toast("Password changed");
+  } catch (err) {
+    $("pwError").textContent = err.message;
+  }
+});
+
+/* --- administration (administrators only) --- */
+const userUi = new Map();  // user id -> "reset" or "delete" while that row is asking for more input
+
+function showAdminTab(name) {
+  const users = name === "users";
+  $("usersPane").hidden = !users;
+  $("auditPane").hidden = users;
+  $("tabUsers").setAttribute("aria-selected", String(users));
+  $("tabAudit").setAttribute("aria-selected", String(!users));
+  if (users) loadUsers(); else loadAudit();
+}
+
+$("adminBtn").addEventListener("click", () => {
+  setUserMenu(false);
+  $("adminError").textContent = "";
+  openModal("adminModal");
+  showAdminTab("users");
+});
+$("adminClose").addEventListener("click", closeModals);
+$("tabUsers").addEventListener("click", () => showAdminTab("users"));
+$("tabAudit").addEventListener("click", () => showAdminTab("audit"));
+
+async function adminCall(path, method, payload) {
+  $("adminError").textContent = "";
+  try {
+    const options = { method };
+    if (payload !== undefined) {
+      options.headers = { "Content-Type": "application/json" };
+      options.body = JSON.stringify(payload);
+    }
+    const result = await api(path, options);
+    await loadUsers();
+    return result;
+  } catch (err) {
+    $("adminError").textContent = err.message;
+    return null;
+  }
+}
+
+function userButton(label, handler, extra = "") {
+  const button = el("button", "btn sm " + extra, label);
+  button.type = "button";
+  button.addEventListener("click", handler);
+  return button;
+}
+
+function renderUsers(users) {
+  const list = $("userList");
+  list.replaceChildren();
+  for (const user of users) {
+    const row = el("li", "user-row");
+    const who = el("div", "who");
+    who.append(document.createTextNode(user.username));
+    who.append(el("small", null, "Added " + new Date(user.created_at * 1000).toLocaleDateString()));
+    row.append(who);
+    row.append(el("span", "tag", user.role === "admin" ? "Administrator" : "User"));
+    if (user.disabled) row.append(el("span", "tag off", "Disabled"));
+    const isMe = currentUser && user.id === currentUser.id;
+    if (isMe) row.append(el("span", "tag", "You"));
+    const actions = el("div", "actions");
+    const mode = userUi.get(user.id);
+    if (mode === "reset") {
+      const input = el("input");
+      input.type = "password";
+      input.placeholder = "New password (10+ characters)";
+      input.autocomplete = "new-password";
+      input.setAttribute("aria-label", "New password for " + user.username);
+      actions.append(input);
+      actions.append(userButton("Save", async () => {
+        if (await adminCall("/admin/users/" + user.id, "PATCH", { password: input.value })) {
+          userUi.delete(user.id);
+          toast("Password reset for " + user.username);
+          await loadUsers();
+        }
+      }, "primary"));
+      actions.append(userButton("Cancel", () => { userUi.delete(user.id); loadUsers(); }));
+    } else if (mode === "delete") {
+      actions.append(el("span", null, "Delete " + user.username + " and all their documents?"));
+      actions.append(userButton("Delete", async () => {
+        userUi.delete(user.id);
+        if (await adminCall("/admin/users/" + user.id, "DELETE")) toast("Deleted " + user.username);
+      }, "danger"));
+      actions.append(userButton("Cancel", () => { userUi.delete(user.id); loadUsers(); }));
+    } else {
+      actions.append(userButton("Reset password", () => { userUi.set(user.id, "reset"); loadUsers(); }));
+      if (!isMe) {
+        actions.append(userButton(user.disabled ? "Enable" : "Disable",
+          () => adminCall("/admin/users/" + user.id, "PATCH", { disabled: !user.disabled })));
+        actions.append(userButton(user.role === "admin" ? "Make user" : "Make administrator",
+          () => adminCall("/admin/users/" + user.id, "PATCH", { role: user.role === "admin" ? "user" : "admin" })));
+        actions.append(userButton("Delete", () => { userUi.set(user.id, "delete"); loadUsers(); }));
+      }
+    }
+    row.append(actions);
+    list.append(row);
+  }
+}
+
+async function loadUsers() {
+  try {
+    renderUsers(await api("/admin/users"));
+  } catch (err) {
+    $("adminError").textContent = err.message;
+  }
+}
+
+$("newUserForm").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const created = await adminCall("/admin/users", "POST", {
+    username: $("nuName").value.trim(), password: $("nuPass").value, role: $("nuRole").value,
+  });
+  if (created) {
+    toast("Added " + created.username);
+    $("nuName").value = "";
+    $("nuPass").value = "";
+  }
+});
+
+async function loadAudit() {
+  const body = $("auditBody");
+  body.replaceChildren();
+  try {
+    const entries = await api("/admin/audit?limit=200");
+    for (const entry of entries) {
+      const row = el("tr");
+      row.append(
+        el("td", "when", new Date(entry.time * 1000).toLocaleString()),
+        el("td", null, entry.user || "-"),
+        el("td", null, ACTION_LABELS[entry.action] || entry.action),
+        el("td", null, entry.detail + (entry.ip ? "  (" + entry.ip + ")" : "")),
+      );
+      body.append(row);
+    }
+    if (!entries.length) {
+      const row = el("tr");
+      const cell = el("td", null, "Nothing has happened yet.");
+      cell.colSpan = 4;
+      row.append(cell);
+      body.append(row);
+    }
+  } catch (err) {
+    $("adminError").textContent = err.message;
+  }
+}
+
 /* ---------- start ---------- */
 $("brandMark").append(brandMark(32));
+$("authMark").append(brandMark(34));
+$("adminClose").append(icon("x", 18));
 $("menuBtn").append(icon("menu", 20));
 withIcon($("addBtn"), "plus", "Add documents");
 withIcon($("newChat"), "refresh", "New chat", 15);
@@ -920,15 +957,14 @@ $("send").append(icon("send", 19));
 renderWelcome();
 renderDocs();
 updateControls();
-// If this file was opened straight from disk (file:, data:) there is no server behind it.
-if (/^https?:$/.test(location.protocol)) {
-  refreshDocs()
-    .then(() => { if (!hasDocs && isMobile()) setDrawer(true); })
-    .then(resumeJobs)
-    .catch((err) => toast(err.message, "error"));
-} else {
-  $("notServed").hidden = false;
-}
-</script>
-</body>
-</html>
+
+(async function boot() {
+  // Ask the server who (if anyone) is signed in, and show the right screen.
+  try {
+    const status = await api("/auth/status");
+    if (status.authenticated) await enterApp(status.user);
+    else showAuth(status.setup_required ? "setup" : "login");
+  } catch (err) {
+    showAuth("login", err.message);
+  }
+})();

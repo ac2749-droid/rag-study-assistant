@@ -1,17 +1,10 @@
 """Conversation memory: follow-up questions are rewritten so they can be searched."""
 import pytest
-from fastapi.testclient import TestClient
 
 from app import gemini
-from app.main import app
 from tests.conftest import REWRITTEN_QUESTION
 
 HISTORY = [{"question": "What does getopt return?", "answer": "It returns -1, '?' or ':'."}]
-
-
-@pytest.fixture
-def client():
-    return TestClient(app)
 
 
 def is_rewrite(prompt: str) -> bool:

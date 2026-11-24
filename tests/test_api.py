@@ -1,19 +1,13 @@
 import pytest
-from fastapi.testclient import TestClient
 
 from app import gemini, store
 from app.chunking import Chunk
-from app.main import app
 from app.rag import NOT_FOUND
 
 
-@pytest.fixture
-def client():
-    return TestClient(app)
-
-
-def test_health_reports_chunk_count(client, loaded_store):
-    assert client.get("/health").json() == {"status": "ok", "chunks": 3}
+def test_health_is_public_and_reveals_nothing_about_anyones_documents(anon_client, loaded_store):
+    r = anon_client.get("/health")  # no sign-in needed, so a monitoring tool can use it
+    assert r.status_code == 200 and r.json() == {"status": "ok"}
 
 
 def test_documents_lists_files_with_chunk_and_page_counts(client, loaded_store):

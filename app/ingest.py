@@ -10,7 +10,7 @@ from pathlib import Path
 
 from pypdf.errors import PyPdfError
 
-from app import store
+from app import auth, store
 from app.chunking import Chunk, chunk_pages
 from app.config import get_settings
 from app.gemini import GeminiError
@@ -50,18 +50,33 @@ def prepare_pdf(path: Path, name: str | None = None) -> PreparedPdf:
     return PreparedPdf(name=name, chunks=chunks, empty_pages=[p.number for p in pages if not p.text])
 
 
-def ingest_pdf(path: Path, name: str | None = None, on_progress=None) -> IngestResult:
+def ingest_pdf(
+    path: Path, name: str | None = None, on_progress=None, *, collection_name: str | None = None
+) -> IngestResult:
     """Read, chunk, embed and store one PDF under `name` (defaults to the file name), start to finish."""
     prepared = prepare_pdf(path, name)
-    stored = store.add_chunks(prepared.chunks, prepared.name, on_progress=on_progress)
+    stored = store.add_chunks(
+        prepared.chunks, prepared.name, on_progress=on_progress, collection_name=collection_name
+    )
     return IngestResult(chunks=stored, empty_pages=prepared.empty_pages)
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Add PDFs to the study assistant's database.")
     parser.add_argument("pdfs", nargs="+", type=Path, help="PDF file(s) to ingest")
+    parser.add_argument(
+        "--user", help="add them to this account's private library (default: the first account's)"
+    )
     args = parser.parse_args(argv)
     logging.basicConfig(level=logging.WARNING)
+
+    collection_name = None
+    if args.user:
+        account = auth.get_user_by_name(args.user)
+        if account is None:
+            print(f"There is no account called {args.user!r}.", file=sys.stderr)
+            return 1
+        collection_name = account.collection
 
     def show_progress(done: int, total: int) -> None:
         print(f"\r  indexed {done} of {total} sections", end="", flush=True)
@@ -70,7 +85,7 @@ def main(argv: list[str] | None = None) -> int:
     for path in args.pdfs:
         print(f"Ingesting {path.name} ...")
         try:
-            result = ingest_pdf(path, on_progress=show_progress)
+            result = ingest_pdf(path, on_progress=show_progress, collection_name=collection_name)
             print()
             if result.empty_pages:
                 print(f"  note: no text on page(s) {result.empty_pages} (images/diagrams are skipped)")

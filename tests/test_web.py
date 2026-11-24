@@ -1,19 +1,11 @@
 """The web page, PDF upload and document removal."""
 import io
 
-import pytest
-from fastapi.testclient import TestClient
 from pypdf import PdfWriter
 
 from app import gemini, store
 from app.chunking import Chunk
-from app.main import app
 from tests.conftest import make_pdf, wait_for_job
-
-
-@pytest.fixture
-def client():
-    return TestClient(app)
 
 
 def upload(client, content: bytes, name: str = "notes.pdf"):
@@ -149,7 +141,6 @@ def test_delete_all_documents(client, loaded_store):
     r = client.delete("/documents/all")
     assert r.status_code == 200 and r.json() == {"removed_chunks": 4}
     assert client.get("/documents").json() == []
-    assert client.get("/health").json()["chunks"] == 0
 
 
 def test_delete_all_on_empty_database_is_fine(client, fake_gemini):

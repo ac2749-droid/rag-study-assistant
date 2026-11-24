@@ -7,7 +7,7 @@ import uuid
 from collections import OrderedDict
 from dataclasses import dataclass, field
 
-from app import messages, store
+from app import auth, messages, store
 from app.chunking import Chunk
 from app.gemini import GeminiBusyError, GeminiError, GeminiQuotaError
 
@@ -26,6 +26,9 @@ class Job:
     done: int = 0  # sections indexed so far
     status: str = QUEUED
     message: str = ""  # a friendly error message when status is "error"
+    owner_id: int | None = None  # the account that added the file; only they can see this job
+    owner_name: str = ""
+    collection_name: str | None = None  # the owner's private library (None = the original one)
 
 
 class IndexQueue:
@@ -35,8 +38,20 @@ class IndexQueue:
         self._lock = threading.Lock()
         self._worker: threading.Thread | None = None
 
-    def submit(self, chunks: list[Chunk], source: str, empty_pages: list[int]) -> Job:
-        job = Job(id=uuid.uuid4().hex[:12], source=source, total=len(chunks), empty_pages=empty_pages)
+    def submit(
+        self,
+        chunks: list[Chunk],
+        source: str,
+        empty_pages: list[int],
+        *,
+        owner_id: int | None = None,
+        owner_name: str = "",
+        collection_name: str | None = None,
+    ) -> Job:
+        job = Job(
+            id=uuid.uuid4().hex[:12], source=source, total=len(chunks), empty_pages=empty_pages,
+            owner_id=owner_id, owner_name=owner_name, collection_name=collection_name,
+        )
         with self._lock:
             self._jobs[job.id] = job
             while len(self._jobs) > KEEP_JOBS:  # forget the oldest finished job, never an active one
@@ -50,14 +65,22 @@ class IndexQueue:
         self._queue.put((job, chunks))
         return job
 
-    def get(self, job_id: str) -> Job | None:
+    def reset(self) -> None:
+        """Forget every remembered job (used by tests so one test's jobs can't show up in the next)."""
         with self._lock:
-            return self._jobs.get(job_id)
+            self._jobs.clear()
 
-    def all(self) -> list[Job]:
-        """Every remembered job, newest first."""
+    def get(self, job_id: str, owner_id: int | None = None) -> Job | None:
+        """A job by id. If `owner_id` is given, only that account's own jobs are visible."""
         with self._lock:
-            return list(reversed(self._jobs.values()))
+            job = self._jobs.get(job_id)
+        return job if job is not None and (owner_id is None or job.owner_id == owner_id) else None
+
+    def all(self, owner_id: int | None = None) -> list[Job]:
+        """Remembered jobs, newest first (just one account's when `owner_id` is given)."""
+        with self._lock:
+            jobs = list(reversed(self._jobs.values()))
+        return [j for j in jobs if owner_id is None or j.owner_id == owner_id]
 
     def _run(self) -> None:
         while True:
@@ -70,7 +93,12 @@ class IndexQueue:
     def _execute(self, job: Job, chunks: list[Chunk]) -> None:
         job.status = RUNNING
         try:
-            store.add_chunks(chunks, job.source, on_progress=lambda done, total: setattr(job, "done", done))
+            store.add_chunks(
+                chunks,
+                job.source,
+                on_progress=lambda done, total: setattr(job, "done", done),
+                collection_name=job.collection_name,
+            )
         except GeminiQuotaError as exc:
             log.warning("Indexing %s stopped by a Gemini limit: %s", job.source, exc)
             if exc.daily:
@@ -89,11 +117,19 @@ class IndexQueue:
         else:
             job.done = job.total
             job.status = DONE
+            self._audit(job, "indexing_done", f"{job.source} ({job.total} sections)")
 
-    @staticmethod
-    def _fail(job: Job, message: str) -> None:
+    def _fail(self, job: Job, message: str) -> None:
         job.message = message
         job.status = ERROR
+        self._audit(job, "indexing_failed", f"{job.source} at {job.done} of {job.total} sections")
+
+    @staticmethod
+    def _audit(job: Job, action: str, detail: str) -> None:
+        try:
+            auth.record(action, user_id=job.owner_id, username=job.owner_name, detail=detail)
+        except Exception:  # the audit log must never break indexing
+            log.exception("Could not write the audit log")
 
 
 index_queue = IndexQueue()

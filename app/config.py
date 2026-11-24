@@ -28,6 +28,10 @@ class Settings:
     per_source_k: int  # chunks taken from EACH document, so every document gets a say
     top_k: int  # most chunks given to the LLM in total, after the relevance cutoff
     max_distance: float  # cosine distance cutoff; farther chunks are treated as irrelevant
+    data_dir: Path  # where the accounts/sessions/audit database lives
+    session_hours: int  # how long a sign-in lasts
+    cookie_secure: bool  # mark the sign-in cookie "Secure" (HTTPS only); also done automatically on https
+    ask_per_minute: int  # questions one user may ask per minute (protects the free Gemini allowance)
 
 
 @lru_cache
@@ -55,6 +59,10 @@ def get_settings() -> Settings:
         per_source_k=int(os.getenv("PER_SOURCE_K", "2")),
         top_k=int(os.getenv("TOP_K", "8")),
         max_distance=float(os.getenv("MAX_DISTANCE", "0.38")),
+        data_dir=Path(os.getenv("DATA_DIR", PROJECT_ROOT / "data")),
+        session_hours=int(os.getenv("SESSION_HOURS", "12")),
+        cookie_secure=os.getenv("COOKIE_SECURE", "").lower() in ("1", "true", "yes"),
+        ask_per_minute=int(os.getenv("ASK_PER_MINUTE", "20")),
     )
     if not 0 <= settings.chunk_overlap < settings.chunk_size:
         raise ValueError("CHUNK_OVERLAP must be >= 0 and smaller than CHUNK_SIZE")
@@ -64,4 +72,6 @@ def get_settings() -> Settings:
         raise ValueError("EMBED_TEXTS_PER_MINUTE must be 0 (no pacing) or a positive number")
     if settings.top_k < 1 or settings.per_source_k < 1:
         raise ValueError("TOP_K and PER_SOURCE_K must be at least 1")
+    if settings.session_hours < 1 or settings.ask_per_minute < 1:
+        raise ValueError("SESSION_HOURS and ASK_PER_MINUTE must be at least 1")
     return settings

@@ -137,7 +137,7 @@ def queue():
 
 
 def run_job(queue, monkeypatch, error, done_before_error: int, total: int = 10):
-    def add(chunks, source, on_progress=None):
+    def add(chunks, source, on_progress=None, **kwargs):
         on_progress(done_before_error, total)
         raise error
 
@@ -177,15 +177,11 @@ def test_saved_progress_note_only_when_the_file_is_partly_done(done, total, ment
     assert bool(messages.saved_progress_note(done, total)) is mentioned
 
 
-def test_the_api_reports_an_incomplete_document(embedder):
-    from fastapi.testclient import TestClient
-
-    from app.main import app
-
+def test_the_api_reports_an_incomplete_document(embedder, client):
     embedder(stop_after_batches=1)
     with pytest.raises(gemini.GeminiQuotaError):
         store.add_chunks(sections("manual.pdf", 6), "manual.pdf")
-    [doc] = TestClient(app).get("/documents").json()
+    [doc] = client.get("/documents").json()
     assert doc["complete"] is False and doc["chunks"] == 2 and doc["expected_chunks"] == 6
 
 

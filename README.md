@@ -41,8 +41,8 @@ Design choices worth knowing:
   close enough, the app replies "I can't find that in the uploaded material" without calling the LLM.
 - **One slide, one chunk.** A short slide is usually one idea (or one code sample), so pages up to
   `PAGE_LIMIT` characters stay whole. Longer pages are split with overlap, at line breaks where possible.
-- **Safe re-ingesting.** Embeddings are computed before anything is deleted, so a Gemini failure never
-  wipes existing data. Re-ingesting a file replaces its old chunks.
+- **Safe re-ingesting.** Sections are saved as they are embedded and unchanged ones are reused (see "Large
+  documents" below), so a failure never wipes existing data, and adding a file again resumes where it stopped.
 
 ## Setup
 
@@ -74,7 +74,12 @@ desktop shortcut, right-click the file and choose Send to, then Desktop (create 
 uvicorn app.main:app
 ```
 
-The page has your documents on the left and the conversation on the right:
+**First time:** the page asks you to create the administrator account (a username and a password of at
+least 10 characters). That first account keeps any documents you added before accounts existed. After that
+you sign in with it, and the administrator can add other people from the account menu, each with a
+private, empty library of their own. Forgot the password? `python -m app.users passwd NAME` sets a new one.
+
+Once signed in, the page has your documents on the left and the conversation on the right:
 
 1. **Add documents.** Click "Add documents" (or drag PDFs onto the page). Each file is listed with its page
    count. Use the trash icon to remove one file, or "Remove all documents" to clear the library. Removing
@@ -82,40 +87,72 @@ The page has your documents on the left and the conversation on the right:
 2. **Ask a question.** Type it and press Enter, or click an example. The answer appears with the pages it
    came from, and you can ask follow-ups. "New chat" starts over.
 
-You can also add PDFs from the command line (useful for many files at once):
+You can also add PDFs from the command line (useful for many files at once), and manage accounts:
 
 ```bash
-python -m app.ingest "path/to/lecture1.pdf" "path/to/lecture2.pdf"
+python -m app.ingest "path/to/lecture1.pdf" "path/to/lecture2.pdf" [--user NAME]
+python -m app.users add alice [--admin]      # also: list, passwd, disable, enable
 ```
 
 ### API (for developers)
 
-Interactive documentation is at <http://127.0.0.1:8000/docs>.
+Interactive documentation is at <http://127.0.0.1:8000/docs>. Everything below needs a signed-in session
+(`POST /auth/login` sets an `HttpOnly` cookie), and every request that changes data must also send the
+header `X-Requested-With: XMLHttpRequest` (see Security). Each user only ever reaches their own documents.
 
 | Method | Path | Purpose |
 |---|---|---|
+| `GET` | `/auth/status` | Is anyone signed in, and is first-time setup still needed? (public) |
+| `POST` | `/auth/setup`, `/auth/login`, `/auth/logout` | Create the first (administrator) account, sign in, sign out. Body `{"username", "password"}` |
+| `POST` | `/auth/password` | Change your own password: `{"current_password", "new_password"}` |
+| `GET`, `POST` | `/admin/users` | Administrators: list accounts, or add one `{"username", "password", "role"}` |
+| `PATCH`, `DELETE` | `/admin/users/{id}` | Administrators: disable/enable, reset a password, change role, or delete an account and its documents |
+| `GET` | `/admin/audit?limit=100` | Administrators: the activity log, newest first |
 | `POST` | `/ask` | Body `{"question": "...", "history": [{"question": "...", "answer": "..."}]}` (`history` is optional, up to 20 earlier exchanges, oldest first). Returns `{"answer": "...", "sources": [{"source": "file.pdf", "page": 4}]}` |
 | `GET` | `/documents` | Files currently stored, sorted by name: `[{"source": "file.pdf", "chunks": 20, "pages": 20, "complete": true, "expected_chunks": 20}]` (`pages` counts pages with readable text; `complete` is `false` if indexing stopped early) |
 | `POST` | `/documents` | Upload a PDF (multipart field `file`). The file is read at once (bad files are rejected immediately), then indexed in the background. Returns `202` with a job: `{"id", "source", "status", "done", "total", "eta_seconds", "message", "empty_pages"}`. Same name replaces the old copy when indexing finishes |
 | `GET` | `/jobs`, `/jobs/{id}` | Progress of background indexing (`status` is `queued`, `running`, `done` or `error`; `message` explains an error) |
 | `DELETE` | `/documents?source=file.pdf` | Remove one file |
 | `DELETE` | `/documents/all` | Remove every file |
-| `GET` | `/health` | Liveness check and total chunk count |
+| `GET` | `/health` | Is the server up? Public, and reveals nothing about anyone's documents |
 
-Errors: `409` nothing added yet, `422` invalid question or a PDF with no readable text, `400` not a
-(readable) PDF, `413` file over `MAX_UPLOAD_MB`, `429` Gemini's rate limit or quota was reached, `503`
+Errors: `401` not signed in, `403` not allowed (or a missing security header), `409` nothing added yet, `422`
+invalid input or a PDF with no readable text, `400` not a (readable) PDF, `413` file over `MAX_UPLOAD_MB`,
+`429` too many wrong passwords, questions asked too fast, or Gemini's rate limit or quota reached, `503`
 Gemini is overloaded (both already retried), `502` any other Gemini failure.
 
-### Security
+### Accounts and security
 
-There is no login. The server listens on `127.0.0.1` (this computer only) by default, which is the
-intended use. Anyone who can reach the server can read your material, upload files and spend your Gemini
-quota, so don't start it with `--host 0.0.0.0` or put it on the internet without adding authentication.
-Uploads are limited to PDFs under `MAX_UPLOAD_MB`, and their file names are reduced to a plain name.
+- **Passwords** are never stored, only salted `scrypt` hashes (the memory-hard function recommended for
+  this), compared in constant time. Passwords need 10+ characters; common ones are refused.
+- **Sign-in sessions** are random tokens in an `HttpOnly`, `SameSite=Lax` cookie (`Secure` over HTTPS).
+  Only the token's SHA-256 is stored, so a leaked database can't be used to impersonate anyone. Sessions
+  expire (`SESSION_HOURS`), end on sign-out, and are revoked when a password changes or an account is
+  disabled or deleted.
+- **Lock-out.** Five wrong passwords lock that username (from that address) out for 15 minutes. Unknown
+  usernames and wrong passwords get the identical answer, so nobody can probe which accounts exist.
+- **Private libraries.** Every account has its own document library; one person's documents, indexing
+  jobs and answers can never reach another's. Administrators manage accounts but cannot read documents.
+- **Forged requests (CSRF).** Anything that changes data must carry a custom header and may not come from
+  another origin, so another website can't act for a signed-in user.
+- **Browser security policy.** The page serves only its own scripts and styles (no inline code, nothing
+  from other sites), forbids framing, and builds everything on screen as plain text, never HTML. Tests
+  enforce all three.
+- **Audit log.** Sign-ins, failed attempts, uploads, removals, questions (that they were asked, never the
+  text), and account changes are recorded and visible to administrators. Passwords, tokens and document
+  text are never logged.
+- **Rate limits.** `ASK_PER_MINUTE` questions per person, so nobody burns through the Gemini allowance.
+
+What this does **not** include: HTTPS (put the app behind a reverse proxy such as Caddy or nginx, or a
+hosting service, before using it across a network, and set `COOKIE_SECURE=true`), password-reset emails,
+two-factor sign-in, or multiple server processes (lock-outs and rate limits are kept in memory). It is
+meant for one computer or a small trusted group; by default it listens only on `127.0.0.1`.
 
 ### Data and privacy
 
-- Your PDFs and their searchable text are stored **on the computer running the app** (in `chroma_db/`).
+- Your PDFs and their searchable text are stored **on the computer running the app** (in `chroma_db/`,
+  one private library per account). Accounts, sessions and the audit log are in `data/app.db`. Both
+  folders are git-ignored and must never be committed or shared.
 - To work, the app sends text to **Google's Gemini API**: each section of a document when it is added (to
   create its search embedding), and the relevant excerpts plus your question whenever you ask something.
   Check that your organisation's policies allow this before adding confidential documents, and read Google's
@@ -137,7 +174,11 @@ Set in `.env` or the environment. All optional except the key.
 | `EMBED_MODEL` | `gemini-embedding-001` | Embedding model |
 | `CHAT_MODEL` | `gemini-3.5-flash` | Model that writes answers |
 | `CHAT_FALLBACK_MODELS` | `gemini-3.8-flash,gemini-3.1-flash-lite` | Comma-separated backups tried in order when the main model is rate-limited or overloaded (empty = none) |
-| `CHROMA_PATH` | `chroma_db` | Where ChromaDB stores data |
+| `CHROMA_PATH` | `chroma_db` | Where ChromaDB stores the documents |
+| `DATA_DIR` | `data` | Where the accounts, sessions and audit log are kept |
+| `SESSION_HOURS` | `12` | How long a sign-in lasts |
+| `COOKIE_SECURE` | off | Set `true` when serving over HTTPS (it is also switched on automatically for https requests) |
+| `ASK_PER_MINUTE` | `20` | Questions one person may ask per minute |
 | `CHUNK_SIZE` / `CHUNK_OVERLAP` | `1500` / `150` | Size and overlap when a long page is split |
 | `PAGE_LIMIT` | `2400` | Pages up to this length stay one chunk (fewer, larger sections use less of Gemini's daily limit) |
 | `PER_SOURCE_K` | `2` | Chunks taken from each document, so every document is heard |
@@ -191,16 +232,20 @@ Layout:
 ```
 app/
   config.py       settings from environment variables
+  auth.py         accounts, password hashing, sessions, lock-out, audit log (SQLite)
+  users.py        command-line account management
+  ratelimit.py    per-user question limit
   pdf_loader.py   PDF -> text per page
   chunking.py     text -> chunks
-  gemini.py       the only module that calls Gemini (client, retries, error handling)
-  store.py        ChromaDB: add, search, list
+  gemini.py       the only module that calls Gemini (client, pacing, retries, error handling)
+  store.py        ChromaDB: add, search, list (one private library per account)
   rag.py          the question-answering pipeline
-  main.py         FastAPI app: web page, upload, ask
+  main.py         FastAPI app: security headers, sign-in, admin, documents, questions
   ingest.py       read PDFs and add them (shared by the web page and the command line)
   jobs.py         background indexing queue with progress
   messages.py     user-facing error messages
-  static/         the web page (index.html)
+  templates/      the page (index.html)
+  static/         the page's script and styles (app.js, app.css)
 tests/            pytest suite
 Launch Study Assistant.bat   Windows double-click launcher
 ```
@@ -211,9 +256,9 @@ Launch Study Assistant.bat   Windows double-click launcher
   Scanned or image-only PDFs have no text and are rejected at ingest.
 - Short memory: follow-ups work because the page sends the last 6 exchanges, but nothing is saved
   between visits, and very old turns are forgotten. "New chat" wipes the memory.
-- It is built for one person or a small trusted group on one machine. There is no login, no separate
-  workspaces per team, and no audit trail: everyone who can open the page sees every document. Shared use
-  across an organisation would need those added (plus hosting, HTTPS and backups) before it is exposed
-  beyond a trusted network.
+- It is built for one computer or a small trusted group. Accounts have private libraries, but there are no
+  shared team workspaces, no sign-in by company directory (SSO), no password-reset emails and no
+  two-factor sign-in. Using it across an organisation would also need HTTPS, hosting and backups (see
+  "Accounts and security").
 - Retrieval is purely by meaning. It can miss questions that depend on exact terms or on combining
   many slides. Hybrid search and reranking are natural next steps.
