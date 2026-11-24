@@ -1,0 +1,153 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [6 0 R 8 0 R 10 0 R 12 0 R 14 0 R] /Count 5 >>
+endobj
+3 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>
+endobj
+4 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>
+endobj
+5 0 obj
+<< /Length 754 >>
+stream
+BT /F2 17 Tf 56 736 Td (What is a pointer?) Tj ET
+BT /F1 11 Tf 56 702 Td 15 TL
+(A pointer is a variable that stores the memory address of another variable. If x is an int,) Tj T*
+(then &x is the address of x, and a pointer to an int is declared with int *p.) Tj T*
+T*
+(To follow a pointer to the value it points to, use the dereference operator *. After p = &x,) Tj T*
+(the expression *p means the same thing as x, so *p = 5 changes x to 5.) Tj T*
+T*
+(A pointer that points to nothing should be set to NULL. Dereferencing a NULL pointer crashes) Tj T*
+(the program, so check a pointer against NULL before you use it when it might be empty.) Tj T*
+ET
+BT /F1 9 Tf 56 40 Td (Introduction to C Pointers: Study Notes \(sample document\)  -  Page 1 of 5) Tj ET
+endstream
+endobj
+6 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 5 0 R /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> >>
+endobj
+7 0 obj
+<< /Length 800 >>
+stream
+BT /F2 17 Tf 56 736 Td (Pointers and arrays) Tj ET
+BT /F1 11 Tf 56 702 Td 15 TL
+(The name of an array, used in an expression, becomes a pointer to its first element. So for) Tj T*
+(an array a, a[i] is exactly the same as *\(a + i\).) Tj T*
+T*
+(Pointer arithmetic. Adding 1 to a pointer moves it to the next element, not the next byte:) Tj T*
+(if p points to an int and an int is 4 bytes, then p + 1 is 4 bytes further on. Subtracting) Tj T*
+(two pointers into the same array gives the number of elements between them.) Tj T*
+T*
+(Strings in C are arrays of char that end with the character '\\0'. A function that receives a) Tj T*
+(string receives a char pointer to its first character.) Tj T*
+ET
+BT /F1 9 Tf 56 40 Td (Introduction to C Pointers: Study Notes \(sample document\)  -  Page 2 of 5) Tj ET
+endstream
+endobj
+8 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 7 0 R /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> >>
+endobj
+9 0 obj
+<< /Length 1015 >>
+stream
+BT /F2 17 Tf 56 736 Td (Pointer to pointer) Tj ET
+BT /F1 11 Tf 56 702 Td 15 TL
+(A pointer to a pointer stores the address of another pointer. It is declared with two stars,) Tj T*
+(as in int **pp. If p is an int * and pp = &p, then *pp is p and **pp is the int that p) Tj T*
+(points to.) Tj T*
+T*
+(Why use one? Because C passes arguments by value, a function that must change a pointer, for) Tj T*
+(example to make it point to newly allocated memory, needs the address of that pointer, which) Tj T*
+(is a pointer to a pointer.) Tj T*
+T*
+(The main function uses it too: in int main\(int argc, char **argv\), argv is a pointer to the) Tj T*
+(first element of an array of char pointers, one for each command line argument.) Tj T*
+T*
+(A dynamic two-dimensional array is built the same way: allocate an array of row pointers,) Tj T*
+(then allocate each row, and keep the whole thing in an int ** variable.) Tj T*
+ET
+BT /F1 9 Tf 56 40 Td (Introduction to C Pointers: Study Notes \(sample document\)  -  Page 3 of 5) Tj ET
+endstream
+endobj
+10 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 9 0 R /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> >>
+endobj
+11 0 obj
+<< /Length 888 >>
+stream
+BT /F2 17 Tf 56 736 Td (Dynamic memory) Tj ET
+BT /F1 11 Tf 56 702 Td 15 TL
+(malloc\(n\) asks for n bytes on the heap and returns a pointer to them, or NULL if it fails.) Tj T*
+(Always check the result. calloc\(count, size\) does the same but sets every byte to zero.) Tj T*
+(realloc\(p, n\) changes the size of an earlier allocation and may move it.) Tj T*
+T*
+(free\(p\) gives the memory back. Every malloc should have exactly one matching free.) Tj T*
+(Forgetting to free causes a memory leak, and freeing the same pointer twice \(a double free\)) Tj T*
+(corrupts the heap and can crash the program.) Tj T*
+T*
+(After calling free\(p\), set p to NULL. Using memory after it has been freed is called a use-) Tj T*
+(after-free bug, and the pointer is then a dangling pointer.) Tj T*
+ET
+BT /F1 9 Tf 56 40 Td (Introduction to C Pointers: Study Notes \(sample document\)  -  Page 4 of 5) Tj ET
+endstream
+endobj
+12 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 11 0 R /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> >>
+endobj
+13 0 obj
+<< /Length 1034 >>
+stream
+BT /F2 17 Tf 56 736 Td (Common mistakes) Tj ET
+BT /F1 11 Tf 56 702 Td 15 TL
+(Using an uninitialised pointer. A pointer declared with no value contains garbage, so) Tj T*
+(dereferencing it is undefined behaviour. Initialise pointers to NULL or to a valid address.) Tj T*
+T*
+(Returning the address of a local variable. The variable disappears when the function) Tj T*
+(returns, so the pointer dangles. Return allocated memory or pass in a buffer instead.) Tj T*
+T*
+(Off-by-one errors. An array of n elements has valid indexes 0 to n - 1. Writing to index n) Tj T*
+(overruns the array.) Tj T*
+T*
+(sizeof on a pointer. For an array a, sizeof\(a\) is the size of the whole array, but for a) Tj T*
+(pointer p, sizeof\(p\) is only the size of the pointer itself, usually 8 bytes.) Tj T*
+T*
+(Practice question: what does **pp = 7 do if pp is an int ** that points to a pointer p that) Tj T*
+(points to an int x? It sets x to 7.) Tj T*
+ET
+BT /F1 9 Tf 56 40 Td (Introduction to C Pointers: Study Notes \(sample document\)  -  Page 5 of 5) Tj ET
+endstream
+endobj
+14 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 13 0 R /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> >>
+endobj
+15 0 obj
+<< /Title (Introduction to C Pointers: Study Notes \(sample document\)) /Producer (tools/make_sample_pdfs.py) >>
+endobj
+xref
+0 16
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000142 00000 n 
+0000000239 00000 n 
+0000000341 00000 n 
+0000001146 00000 n 
+0000001282 00000 n 
+0000002133 00000 n 
+0000002269 00000 n 
+0000003336 00000 n 
+0000003473 00000 n 
+0000004413 00000 n 
+0000004551 00000 n 
+0000005638 00000 n 
+0000005776 00000 n 
+trailer
+<< /Size 16 /Root 1 0 R /Info 15 0 R >>
+startxref
+5905
+%%EOF

@@ -1,0 +1,191 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [6 0 R 8 0 R 10 0 R 12 0 R 14 0 R 16 0 R] /Count 6 >>
+endobj
+3 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>
+endobj
+4 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>
+endobj
+5 0 obj
+<< /Length 1203 >>
+stream
+BT /F2 17 Tf 56 736 Td (Welcome and quick start) Tj ET
+BT /F1 11 Tf 56 702 Td 15 TL
+(Thank you for choosing the Acme AirLink X200. This guide explains how to set up your router,) Tj T*
+(what the lights mean, how to keep your network secure and what to do if something goes) Tj T*
+(wrong.) Tj T*
+T*
+(What is in the box: the AirLink X200 router, a 12 V power adapter, one yellow Ethernet) Tj T*
+(cable, a quick start card and a wall-mount bracket with two screws.) Tj T*
+T*
+(Quick start. 1. Place the router in an open area, away from microwave ovens and thick walls.) Tj T*
+(2. Connect the yellow Ethernet cable from your modem to the yellow WAN port on the back of) Tj T*
+(the router. 3. Plug in the power adapter and wait about two minutes while the Power light) Tj T*
+(blinks amber. 4. When the Power light turns solid green, join the Wi-Fi network printed on) Tj T*
+(the label under the router. 5. Open the AirLink app or visit airlink.setup in a web browser) Tj T*
+(and follow the steps to name your network and choose a password. 6. Restart your devices so) Tj T*
+(they reconnect.) Tj T*
+ET
+BT /F1 9 Tf 56 40 Td (Acme AirLink X200 Wi-Fi Router: User Guide \(sample document\)  -  Page 1 of 6) Tj ET
+endstream
+endobj
+6 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 5 0 R /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> >>
+endobj
+7 0 obj
+<< /Length 904 >>
+stream
+BT /F2 17 Tf 56 736 Td (Understanding the lights) Tj ET
+BT /F1 11 Tf 56 702 Td 15 TL
+(The front of the router has four lights. Power: solid green means the router is ready;) Tj T*
+(blinking amber means it is starting up; solid red means a fault \(see Error codes on page 5\).) Tj T*
+T*
+(Internet: solid white means the router can reach the internet; blinking white means it is) Tj T*
+(looking for a connection; off means the yellow WAN cable is not detected.) Tj T*
+T*
+(Wi-Fi: solid blue means both the 2.4 GHz and 5 GHz networks are on; blinking blue means a) Tj T*
+(device is pairing with WPS; off means Wi-Fi has been switched off in the app.) Tj T*
+T*
+(Guest: solid green means the guest network is on. Guests can use the internet but cannot see) Tj T*
+(your other devices or files.) Tj T*
+ET
+BT /F1 9 Tf 56 40 Td (Acme AirLink X200 Wi-Fi Router: User Guide \(sample document\)  -  Page 2 of 6) Tj ET
+endstream
+endobj
+8 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 7 0 R /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> >>
+endobj
+9 0 obj
+<< /Length 1168 >>
+stream
+BT /F2 17 Tf 56 736 Td (Wi-Fi and security) Tj ET
+BT /F1 11 Tf 56 702 Td 15 TL
+(Network name and password. The default network name and password are printed on the label) Tj T*
+(under the router. Change both during setup. A good password has at least 12 characters.) Tj T*
+T*
+(Guest network. In the AirLink app choose Guest network and switch it on. You can set it to) Tj T*
+(turn off automatically after 24 hours.) Tj T*
+T*
+(WPS pairing. Press and hold the WPS button on the side of the router for 3 seconds. The Wi-) Tj T*
+(Fi light blinks blue for two minutes while you press the WPS button on the device you want) Tj T*
+(to connect.) Tj T*
+T*
+(Parental controls. In the app choose Family, then add each child's devices to a profile. You) Tj T*
+(can block categories of websites and set a daily internet schedule.) Tj T*
+T*
+(Band steering. The router combines the 2.4 GHz and 5 GHz networks under one name and moves) Tj T*
+(each device to the faster band when it can. Turn this off in Advanced settings if an older) Tj T*
+(device will not connect.) Tj T*
+ET
+BT /F1 9 Tf 56 40 Td (Acme AirLink X200 Wi-Fi Router: User Guide \(sample document\)  -  Page 3 of 6) Tj ET
+endstream
+endobj
+10 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 9 0 R /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> >>
+endobj
+11 0 obj
+<< /Length 963 >>
+stream
+BT /F2 17 Tf 56 736 Td (Resetting and updating) Tj ET
+BT /F1 11 Tf 56 702 Td 15 TL
+(Restart. To restart the router, unplug the power adapter for 10 seconds and plug it back in.) Tj T*
+(Your settings are kept.) Tj T*
+T*
+(Factory reset. To erase all settings and return to the defaults, use a paperclip to press) Tj T*
+(and hold the Reset button on the back for 10 seconds, until the Power light blinks red.) Tj T*
+(Release the button and wait three minutes. After a factory reset you must set up the router) Tj T*
+(again.) Tj T*
+T*
+(Firmware updates. The router checks for updates every night and installs them between 3 a.m.) Tj T*
+(and 4 a.m. To update by hand, open the AirLink app, choose Settings, then Firmware, and tap) Tj T*
+(Update now. Never unplug the router while it is updating: the Power light blinks white) Tj T*
+(during an update.) Tj T*
+ET
+BT /F1 9 Tf 56 40 Td (Acme AirLink X200 Wi-Fi Router: User Guide \(sample document\)  -  Page 4 of 6) Tj ET
+endstream
+endobj
+12 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 11 0 R /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> >>
+endobj
+13 0 obj
+<< /Length 1157 >>
+stream
+BT /F2 17 Tf 56 736 Td (Troubleshooting and error codes) Tj ET
+BT /F1 11 Tf 56 702 Td 15 TL
+(No internet. Check that the yellow cable is firmly connected to the WAN port and to your) Tj T*
+(modem. Restart the modem first, wait two minutes, then restart the router.) Tj T*
+T*
+(Slow Wi-Fi. Move closer to the router, keep it off the floor, and avoid placing it near) Tj T*
+(metal objects. Devices that support 5 GHz will be faster at short range.) Tj T*
+T*
+(Error codes are shown in the AirLink app. E-12 means no WAN cable was detected. E-31 means) Tj T*
+(the router's address conflicts with another device; restart your modem to fix it. E-47 means) Tj T*
+(the router has overheated: unplug it, move it somewhere cooler with space around it, and) Tj T*
+(wait 15 minutes before plugging it in. E-52 means the firmware is damaged: do a factory) Tj T*
+(reset and then update the firmware.) Tj T*
+T*
+(If an error comes back after these steps, contact Acme Support with your serial number,) Tj T*
+(which is printed on the label under the router.) Tj T*
+ET
+BT /F1 9 Tf 56 40 Td (Acme AirLink X200 Wi-Fi Router: User Guide \(sample document\)  -  Page 5 of 6) Tj ET
+endstream
+endobj
+14 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 13 0 R /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> >>
+endobj
+15 0 obj
+<< /Length 990 >>
+stream
+BT /F2 17 Tf 56 736 Td (Specifications, warranty and safety) Tj ET
+BT /F1 11 Tf 56 702 Td 15 TL
+(Specifications. Wi-Fi: dual band 2.4 GHz and 5 GHz. Ports: one WAN port and four 1 Gigabit) Tj T*
+(LAN ports. Power: 12 V, 1.5 A. Size: 160 mm by 160 mm by 45 mm. Weight: 380 grams.) Tj T*
+T*
+(Warranty. Acme provides a two-year limited warranty from the date of purchase. The warranty) Tj T*
+(covers defects in materials and workmanship. It does not cover damage from liquids,) Tj T*
+(overheating caused by blocking the vents, or modification of the router.) Tj T*
+T*
+(Safety. Use only the supplied power adapter. Keep the router away from water and do not) Tj T*
+(cover its vents. Do not open the case: there are no user-serviceable parts inside. Recycle) Tj T*
+(the router and adapter at an electronics collection point rather than throwing them in) Tj T*
+(household waste.) Tj T*
+ET
+BT /F1 9 Tf 56 40 Td (Acme AirLink X200 Wi-Fi Router: User Guide \(sample document\)  -  Page 6 of 6) Tj ET
+endstream
+endobj
+16 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 15 0 R /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> >>
+endobj
+17 0 obj
+<< /Title (Acme AirLink X200 Wi-Fi Router: User Guide \(sample document\)) /Producer (tools/make_sample_pdfs.py) >>
+endobj
+xref
+0 18
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000149 00000 n 
+0000000246 00000 n 
+0000000348 00000 n 
+0000001603 00000 n 
+0000001739 00000 n 
+0000002694 00000 n 
+0000002830 00000 n 
+0000004050 00000 n 
+0000004187 00000 n 
+0000005202 00000 n 
+0000005340 00000 n 
+0000006550 00000 n 
+0000006688 00000 n 
+0000007730 00000 n 
+0000007868 00000 n 
+trailer
+<< /Size 18 /Root 1 0 R /Info 17 0 R >>
+startxref
+8000
+%%EOF

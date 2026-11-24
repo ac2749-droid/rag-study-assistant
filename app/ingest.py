@@ -3,6 +3,7 @@
     python -m app.ingest lecture1.pdf [lecture2.pdf ...]
 """
 import argparse
+import glob
 import logging
 import sys
 from dataclasses import dataclass
@@ -61,6 +62,18 @@ def ingest_pdf(
     return IngestResult(chunks=stored, empty_pages=prepared.empty_pages)
 
 
+def expand_paths(paths: list[Path]) -> list[Path]:
+    """Expand wildcards like samples/*.pdf. Windows shells don't do this for programs, so we do it here.
+    A pattern that matches nothing is kept as it was, so the error message names what the user typed."""
+    expanded: list[Path] = []
+    for path in paths:
+        if any(character in str(path) for character in "*?["):
+            expanded.extend(sorted(Path(match) for match in glob.glob(str(path))) or [path])
+        else:
+            expanded.append(path)
+    return expanded
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Add PDFs to the study assistant's database.")
     parser.add_argument("pdfs", nargs="+", type=Path, help="PDF file(s) to ingest")
@@ -82,7 +95,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"\r  indexed {done} of {total} sections", end="", flush=True)
 
     failures = 0
-    for path in args.pdfs:
+    for path in expand_paths(args.pdfs):
         print(f"Ingesting {path.name} ...")
         try:
             result = ingest_pdf(path, on_progress=show_progress, collection_name=collection_name)
