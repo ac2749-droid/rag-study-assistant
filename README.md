@@ -95,8 +95,9 @@ Interactive documentation is at <http://127.0.0.1:8000/docs>.
 | Method | Path | Purpose |
 |---|---|---|
 | `POST` | `/ask` | Body `{"question": "...", "history": [{"question": "...", "answer": "..."}]}` (`history` is optional, up to 20 earlier exchanges, oldest first). Returns `{"answer": "...", "sources": [{"source": "file.pdf", "page": 4}]}` |
-| `GET` | `/documents` | Files currently stored, sorted by name: `[{"source": "file.pdf", "chunks": 20, "pages": 20}]` (`pages` counts pages that contain readable text) |
-| `POST` | `/documents` | Upload a PDF (multipart field `file`). Same name replaces the old copy |
+| `GET` | `/documents` | Files currently stored, sorted by name: `[{"source": "file.pdf", "chunks": 20, "pages": 20, "complete": true, "expected_chunks": 20}]` (`pages` counts pages with readable text; `complete` is `false` if indexing stopped early) |
+| `POST` | `/documents` | Upload a PDF (multipart field `file`). The file is read at once (bad files are rejected immediately), then indexed in the background. Returns `202` with a job: `{"id", "source", "status", "done", "total", "eta_seconds", "message", "empty_pages"}`. Same name replaces the old copy when indexing finishes |
+| `GET` | `/jobs`, `/jobs/{id}` | Progress of background indexing (`status` is `queued`, `running`, `done` or `error`; `message` explains an error) |
 | `DELETE` | `/documents?source=file.pdf` | Remove one file |
 | `DELETE` | `/documents/all` | Remove every file |
 | `GET` | `/health` | Liveness check and total chunk count |
@@ -131,13 +132,14 @@ Set in `.env` or the environment. All optional except the key.
 | `GEMINI_API_KEY` | none (required) | Your Gemini API key |
 | `APP_NAME` | `Anthony's Study Assistant` | Name shown on the page and in the API docs |
 | `MAX_UPLOAD_MB` | `50` | Largest PDF accepted through the web page |
+| `EMBED_TEXTS_PER_MINUTE` | `90` | How fast document sections are sent to Gemini for indexing. Gemini's free plan allows 100 per minute, so 90 leaves room for questions. Set `0` to turn pacing off on a paid plan |
 | `GEMINI_TIMEOUT_SECONDS` | `45` | How long to wait for any single Gemini request before giving up on it (a stalled model then triggers the fallback) |
 | `EMBED_MODEL` | `gemini-embedding-001` | Embedding model |
 | `CHAT_MODEL` | `gemini-3.5-flash` | Model that writes answers |
 | `CHAT_FALLBACK_MODELS` | `gemini-3.8-flash,gemini-3.1-flash-lite` | Comma-separated backups tried in order when the main model is rate-limited or overloaded (empty = none) |
 | `CHROMA_PATH` | `chroma_db` | Where ChromaDB stores data |
-| `CHUNK_SIZE` / `CHUNK_OVERLAP` | `800` / `100` | Size and overlap when a long page is split |
-| `PAGE_LIMIT` | `1200` | Pages up to this length stay one chunk |
+| `CHUNK_SIZE` / `CHUNK_OVERLAP` | `1500` / `150` | Size and overlap when a long page is split |
+| `PAGE_LIMIT` | `2400` | Pages up to this length stay one chunk (fewer, larger sections use less of Gemini's daily limit) |
 | `PER_SOURCE_K` | `2` | Chunks taken from each document, so every document is heard |
 | `TOP_K` | `8` | Most chunks sent to the model in total, after the relevance cutoff |
 | `MAX_DISTANCE` | `0.38` | Relevance cutoff (cosine distance, lower = closer) |
@@ -148,6 +150,29 @@ before giving up, and if Google says to wait more than 30 seconds it stops waiti
 is limited you'll see "The AI service's usage limit was reached". Wait a minute, or check your plan at
 <https://aistudio.google.com>. Embeddings (used when adding documents and when searching) have no
 fallback, because vectors from different embedding models can't be compared.
+
+**Large documents and Gemini's limits.** To search a document, each of its sections must be sent to Gemini
+once to be indexed, and Gemini's free plan counts every section as one request, with two limits: **100 per
+minute** and about **1,000 per day**. A 370-page phone manual is 439 sections at the default section size
+(1,015 at the old, smaller size, which by itself was more than a free day allows). What the app does about it:
+
+- **Pacing.** It stays under the per-minute limit (`EMBED_TEXTS_PER_MINUTE`, default 90, with a few seconds'
+  safety margin) and indexes in the background with a progress bar, so you can keep asking questions
+  about other documents meanwhile. A 439-section manual takes about 5 minutes.
+- **Larger sections by default** (`CHUNK_SIZE=1500`, `PAGE_LIMIT=2400`), so a typical manual page stays whole
+  and needs one embedding instead of two or three.
+- **Nothing is wasted.** Each batch is saved as soon as it is embedded, and sections already stored are
+  reused. If indexing stops early (a daily limit, a network failure), the file shows as **Incomplete** in
+  the library with how far it got, and adding the same file again continues where it stopped. Re-adding an
+  unchanged file costs nothing.
+- **A clear message.** A daily limit says so, says it resets about midnight Pacific time, and that your
+  progress is saved.
+- **A guard against bad models.** Some Gemini embedding models (for example `gemini-embedding-2`) merge a
+  list of texts into a single embedding. The app checks that it gets one embedding per text and stops with
+  an explanation instead of quietly storing a mostly empty index.
+
+To go faster or past the daily limit, use a paid Gemini plan and set `EMBED_TEXTS_PER_MINUTE=0`. Changing
+`EMBED_MODEL` means re-adding your documents (vectors from different models can't be compared).
 
 **Tuning `MAX_DISTANCE`.** The default was measured on one 11-slide C deck: on-topic questions had their
 best chunk at 0.20 to 0.25 and off-topic ones at 0.43 or more. A larger or more uniform corpus may need
@@ -172,7 +197,9 @@ app/
   store.py        ChromaDB: add, search, list
   rag.py          the question-answering pipeline
   main.py         FastAPI app: web page, upload, ask
-  ingest.py       add PDFs (shared by the web page and the command line)
+  ingest.py       read PDFs and add them (shared by the web page and the command line)
+  jobs.py         background indexing queue with progress
+  messages.py     user-facing error messages
   static/         the web page (index.html)
 tests/            pytest suite
 Launch Study Assistant.bat   Windows double-click launcher

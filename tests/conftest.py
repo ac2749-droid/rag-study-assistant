@@ -1,4 +1,6 @@
 """Shared test setup: an isolated temp database and a fake Gemini, so tests never hit the network."""
+import time
+
 import pytest
 
 from app import config, gemini, store
@@ -42,10 +44,23 @@ def make_pdf(text: str) -> bytes:
     return bytes(out)
 
 
+def wait_for_job(client, job_id: str, timeout: float = 10.0) -> dict:
+    """Poll GET /jobs/{id} until the background indexing job finishes; return its final state."""
+    deadline = time.time() + timeout
+    job: dict = {}
+    while time.time() < deadline:
+        job = client.get(f"/jobs/{job_id}").json()
+        if job["status"] in ("done", "error"):
+            return job
+        time.sleep(0.02)
+    raise AssertionError(f"job {job_id} did not finish within {timeout}s: {job}")
+
+
 def _clear_caches() -> None:
     # A test may have replaced one of these with a plain stand-in function (no cache to clear).
     for function in (config.get_settings, store.get_collection, gemini.get_client):
         getattr(function, "cache_clear", lambda: None)()
+    gemini._WINDOW.reset()  # forget how many texts earlier tests "sent" this minute
 
 
 @pytest.fixture(autouse=True)
@@ -55,6 +70,7 @@ def isolated_env(tmp_path, monkeypatch):
     for name in (
         "CHUNK_SIZE", "CHUNK_OVERLAP", "PAGE_LIMIT", "TOP_K", "PER_SOURCE_K", "MAX_DISTANCE", "APP_NAME",
         "MAX_UPLOAD_MB", "CHAT_MODEL", "CHAT_FALLBACK_MODELS", "GEMINI_TIMEOUT_SECONDS",
+        "EMBED_TEXTS_PER_MINUTE",
     ):
         monkeypatch.delenv(name, raising=False)
     _clear_caches()
@@ -77,6 +93,16 @@ def fake_gemini(monkeypatch):
             return REWRITTEN_QUESTION  # what the "follow-up rewriter" would produce
         return "FAKE ANSWER"
 
+    def embed_documents(texts, on_progress=None, on_batch=None):
+        calls["embedded"].append(("RETRIEVAL_DOCUMENT", list(texts)))
+        vectors = [fake_vector(t) for t in texts]
+        if on_batch:
+            on_batch(0, vectors)
+        if on_progress:
+            on_progress(len(texts), len(texts))
+        return vectors
+
+    monkeypatch.setattr(gemini, "embed_documents", embed_documents)
     monkeypatch.setattr(gemini, "embed_texts", embed)
     monkeypatch.setattr(gemini, "generate", generate)
     return calls

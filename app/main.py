@@ -1,6 +1,7 @@
 """FastAPI app: a simple web page at /, plus the JSON API behind it."""
 import html
 import logging
+import math
 import tempfile
 from pathlib import Path
 
@@ -9,21 +10,16 @@ from fastapi.responses import HTMLResponse
 from pydantic import BaseModel, Field, field_validator
 from pypdf.errors import PyPdfError
 
-from app import rag, store
+from app import jobs, messages, rag, store
 from app.config import get_settings
 from app.gemini import GeminiBusyError, GeminiError, GeminiQuotaError
-from app.ingest import ingest_pdf
+from app.ingest import prepare_pdf
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 log = logging.getLogger(__name__)
 
 INDEX_PATH = Path(__file__).parent / "static" / "index.html"
 UPLOAD_READ_SIZE = 1024 * 1024
-BUSY_MESSAGE = "The AI service is overloaded right now. Please try again in a minute."
-QUOTA_MESSAGE = (
-    "The AI service's usage limit was reached (too many requests too quickly, or today's free quota "
-    "is used up). Wait a minute and try again. If it keeps happening, check your Gemini plan limits."
-)
 
 app = FastAPI(
     title=get_settings().app_name,
@@ -32,7 +28,7 @@ app = FastAPI(
         "policies) and get answers with page references. This is the JSON API behind the web page "
         "at `/`; most people should use that page."
     ),
-    version="0.3.0",
+    version="0.4.0",
 )
 
 
@@ -74,12 +70,31 @@ class DocumentOut(BaseModel):
     source: str
     chunks: int  # searchable sections the file was split into
     pages: int  # pages that contain readable text
+    complete: bool  # False if indexing stopped early: only part of the file is searchable
+    expected_chunks: int  # how many sections the whole file should have
 
 
-class UploadResponse(BaseModel):
+class JobOut(BaseModel):
+    """A document being indexed in the background."""
+
+    id: str
     source: str
-    chunks: int
-    empty_pages: list[int]
+    status: str  # queued | running | done | error
+    done: int  # sections indexed so far
+    total: int  # sections to index
+    eta_seconds: int | None  # rough time left, or None when unknown / finished
+    message: str  # a friendly explanation when status is "error"
+    empty_pages: list[int]  # pages with no readable text, which were skipped
+
+
+def job_out(job: jobs.Job) -> JobOut:
+    per_minute = get_settings().embed_texts_per_minute
+    active = job.status in (jobs.QUEUED, jobs.RUNNING)
+    eta = math.ceil((job.total - job.done) / per_minute * 60) if active and per_minute > 0 else None
+    return JobOut(
+        id=job.id, source=job.source, status=job.status, done=job.done, total=job.total,
+        eta_seconds=eta, message=job.message, empty_pages=job.empty_pages,
+    )
 
 
 @app.get("/", response_class=HTMLResponse, include_in_schema=False)
@@ -100,9 +115,12 @@ def documents() -> list[DocumentOut]:
     return [DocumentOut(**d) for d in store.list_documents()]
 
 
-@app.post("/documents", response_model=UploadResponse)
-def upload_document(file: UploadFile) -> UploadResponse:
-    """Add a PDF. Uploading a file with the same name replaces the earlier copy."""
+@app.post("/documents", response_model=JobOut, status_code=202)
+def upload_document(file: UploadFile) -> JobOut:
+    """Add a PDF. The file is read right away (so a bad file is rejected at once); indexing it can take
+    minutes for a big document, so it continues in the background: follow it at GET /jobs/{id}.
+    Uploading a file with the same name replaces the earlier copy when indexing finishes, and adding a
+    file whose indexing stopped early continues where it stopped."""
     name = Path(file.filename or "").name[:200]
     if not name.lower().endswith(".pdf"):
         raise HTTPException(400, "Please choose a PDF file.")
@@ -122,23 +140,26 @@ def upload_document(file: UploadFile) -> UploadResponse:
             if check.read(5) != b"%PDF-":
                 raise HTTPException(400, "That doesn't look like a PDF file.")
         try:
-            result = ingest_pdf(path, name)
+            prepared = prepare_pdf(path, name)
         except PyPdfError:
-            raise HTTPException(
-                400, "That PDF couldn't be read. It may be damaged or password-protected."
-            ) from None
+            raise HTTPException(400, messages.UNREADABLE_PDF_MESSAGE) from None
         except ValueError:
-            raise HTTPException(
-                422, "No text could be read from that PDF. Scanned pages (pictures of text) aren't supported."
-            ) from None
-        except GeminiQuotaError:
-            raise HTTPException(429, QUOTA_MESSAGE) from None
-        except GeminiBusyError:
-            raise HTTPException(503, BUSY_MESSAGE) from None
-        except GeminiError:
-            log.exception("Gemini request failed during upload")
-            raise HTTPException(502, "The language model request failed. Check the server logs.") from None
-    return UploadResponse(source=name, chunks=result.chunks, empty_pages=result.empty_pages)
+            raise HTTPException(422, messages.NO_TEXT_MESSAGE) from None
+    return job_out(jobs.index_queue.submit(prepared.chunks, prepared.name, prepared.empty_pages))
+
+
+@app.get("/jobs", response_model=list[JobOut])
+def list_jobs() -> list[JobOut]:
+    """Recent indexing jobs, newest first."""
+    return [job_out(job) for job in jobs.index_queue.all()]
+
+
+@app.get("/jobs/{job_id}", response_model=JobOut)
+def get_job(job_id: str) -> JobOut:
+    job = jobs.index_queue.get(job_id)
+    if job is None:
+        raise HTTPException(404, "No such job.")
+    return job_out(job)
 
 
 @app.delete("/documents/all")
@@ -163,13 +184,14 @@ def ask(body: AskRequest) -> AskResponse:
         result = rag.answer_question(body.question, history)
     except rag.NoMaterialError:
         raise HTTPException(409, "No material yet. Add a PDF first.") from None
-    except GeminiQuotaError:
-        raise HTTPException(429, QUOTA_MESSAGE) from None
+    except GeminiQuotaError as exc:
+        log.warning("Question stopped by a Gemini limit: %s", exc)
+        raise HTTPException(429, messages.QUOTA_MESSAGE) from None
     except GeminiBusyError:
-        raise HTTPException(503, BUSY_MESSAGE) from None
+        raise HTTPException(503, messages.BUSY_MESSAGE) from None
     except GeminiError:
         log.exception("Gemini request failed")
-        raise HTTPException(502, "The language model request failed. Check the server logs.") from None
+        raise HTTPException(502, messages.MODEL_FAILED_MESSAGE) from None
     return AskResponse(
         answer=result.answer,
         sources=[SourceOut(source=s.source, page=s.page) for s in result.sources],

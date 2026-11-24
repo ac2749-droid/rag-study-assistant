@@ -75,6 +75,20 @@ def quota_error(delay: int | None = None):
     return errors.ClientError(429, body)
 
 
+def test_the_exceeded_quota_is_named_in_the_error():
+    body = {"error": {"message": "quota", "status": "RESOURCE_EXHAUSTED", "details": [
+        {"@type": "type.googleapis.com/google.rpc.QuotaFailure",
+         "violations": [{"quotaId": "EmbedContentRequestsPerMinutePerProjectPerModel-FreeTier"}]},
+        {"@type": "type.googleapis.com/google.rpc.RetryInfo", "retryDelay": "600s"},
+    ]}}
+
+    def call():
+        raise errors.ClientError(429, body)
+
+    with pytest.raises(gemini.GeminiQuotaError, match="EmbedContentRequestsPerMinutePerProjectPerModel"):
+        gemini._with_retries(call)
+
+
 def test_waits_as_long_as_google_asks_on_a_rate_limit(no_sleep):
     attempts = []
 

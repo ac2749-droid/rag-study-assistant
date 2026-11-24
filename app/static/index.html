@@ -106,17 +106,21 @@
   .doc-info { flex: 1; min-width: 0; }
   .doc-name { font-size: .9rem; font-weight: 550; line-height: 1.3; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .doc-meta { color: var(--faint); font-size: .78rem; }
+  .doc-meta.warn { color: var(--danger); font-weight: 600; }
   .doc.confirm { background: var(--danger-soft); border-color: var(--danger); gap: 8px; }
   .doc.confirm .doc-name { color: var(--danger); }
   .empty-docs { border: 1px dashed var(--border-strong); border-radius: 10px; padding: 16px; color: var(--muted);
     font-size: .88rem; text-align: center; }
   .empty-docs strong { color: var(--text); display: block; margin-bottom: 4px; }
-  .progress { background: var(--accent-soft); border-radius: 10px; padding: 12px 14px; font-size: .86rem; }
-  .progress .bar { height: 4px; border-radius: 4px; background: var(--border); margin-top: 9px; overflow: hidden; }
-  .progress .bar::after { content: ""; display: block; height: 100%; width: 40%; background: var(--accent);
-    border-radius: 4px; animation: slide 1.2s ease-in-out infinite; }
-  @keyframes slide { 0% { transform: translateX(-100%); } 100% { transform: translateX(350%); } }
-  .progress .file { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .jobs { display: flex; flex-direction: column; gap: 8px; }
+  .jobs:empty { display: none; }
+  .job { background: var(--accent-soft); border-radius: 10px; padding: 11px 14px; font-size: .86rem; }
+  .job-name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .job-meta { color: var(--muted); margin-top: 2px; }
+  .bar { height: 5px; border-radius: 5px; background: var(--border); margin-top: 9px; overflow: hidden; }
+  .bar > div { height: 100%; background: var(--accent); border-radius: 5px; transition: width .4s ease; }
+  .bar.waiting > div { width: 35%; animation: slide 1.3s ease-in-out infinite; }
+  @keyframes slide { 0% { transform: translateX(-100%); } 100% { transform: translateX(300%); } }
   .side-foot { margin-top: auto; padding-top: 14px; border-top: 1px solid var(--border); display: flex;
     flex-direction: column; gap: 10px; }
   .remove-all-confirm { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: .86rem; color: var(--danger); }
@@ -250,12 +254,10 @@
       <div class="side-head"><h2>Documents</h2><span id="docCount" class="pill"></span></div>
       <button id="addBtn" class="btn primary block" type="button"></button>
       <input type="file" id="file" accept="application/pdf,.pdf" multiple hidden>
+      <p class="fine-print" style="margin-top:-6px">Big documents are indexed in the background, so you can keep
+        asking questions. On Gemini's free plan a 300-page manual takes about 5 minutes.</p>
 
-      <div id="progress" class="progress" role="status" hidden>
-        <div id="progressTitle"></div>
-        <div id="progressFile" class="file"></div>
-        <div class="bar"></div>
-      </div>
+      <div id="jobs" class="jobs" role="status" aria-live="polite"></div>
 
       <ul id="docs" class="doclist"></ul>
       <div id="emptyDocs" class="empty-docs" hidden>
@@ -445,7 +447,13 @@ function renderDocs() {
       const info = el("div", "doc-info");
       const name = el("div", "doc-name", doc.source);
       name.title = doc.source;
-      info.append(name, el("div", "doc-meta", doc.pages + (doc.pages === 1 ? " page" : " pages")));
+      const meta = el("div", "doc-meta", doc.pages + (doc.pages === 1 ? " page" : " pages"));
+      if (!doc.complete) {  // indexing stopped early (for example a daily limit): only part is searchable
+        meta.textContent = "Incomplete: " + doc.chunks.toLocaleString() + " of " + doc.expected_chunks.toLocaleString() + " sections";
+        meta.classList.add("warn");
+        meta.title = "Only part of this file was indexed, so answers may miss things. Add the same file again to finish it.";
+      }
+      info.append(name, meta);
       const trash = el("button", "icon-btn danger");
       trash.type = "button";
       trash.title = "Remove";
@@ -525,41 +533,117 @@ async function removeAll() {
   }
 }
 
+/* Documents are indexed in the background (big ones take minutes), so the page shows a progress bar per
+   file and keeps checking until each one is finished. It also picks up jobs after a page refresh. */
+const tracked = new Map();   // job id -> file name, for the jobs this page is watching
+let activeJobs = [];         // the latest known state of those jobs
+let reading = null;          // name of the file being read by the server right now
+let pollTimer = null;
+
+function formatEta(seconds) {
+  if (seconds == null) return "";
+  return seconds < 60 ? " · under a minute left" : " · about " + Math.ceil(seconds / 60) + " min left";
+}
+
+function renderJobs() {
+  const box = $("jobs");
+  box.replaceChildren();
+  const card = (name, text, percent) => {
+    const item = el("div", "job");
+    const title = el("div", "job-name", name);
+    title.title = name;
+    const bar = el("div", "bar" + (percent == null ? " waiting" : ""));
+    const fill = el("div");
+    if (percent != null) fill.style.width = percent + "%";
+    bar.append(fill);
+    item.append(title, el("div", "job-meta", text), bar);
+    box.append(item);
+  };
+  if (reading) card(reading, "Reading the file...", null);
+  for (const job of activeJobs) {
+    if (job.status === "queued") card(job.source, "Waiting for earlier files...", null);
+    else if (job.done === 0) card(job.source, "Starting to index " + job.total.toLocaleString() + " sections...", null);
+    else card(job.source, "Indexing " + job.done.toLocaleString() + " of " + job.total.toLocaleString() +
+      " sections" + formatEta(job.eta_seconds), Math.round((job.done / job.total) * 100));
+  }
+}
+
+function schedulePoll(delay) {
+  if (pollTimer === null) pollTimer = setTimeout(pollJobs, delay);
+}
+
+async function pollJobs() {
+  pollTimer = null;
+  if (!tracked.size) { activeJobs = []; renderJobs(); return; }
+  let all;
+  try {
+    all = await api("/jobs");
+  } catch {
+    schedulePoll(4000);  // a hiccup talking to the server: keep trying
+    return;
+  }
+  const byId = new Map(all.map((job) => [job.id, job]));
+  let finished = false;
+  for (const [id, name] of [...tracked]) {
+    const job = byId.get(id);
+    if (!job) {
+      toast("“" + name + "” was interrupted. Please add it again.", "error");
+      tracked.delete(id);
+    } else if (job.status === "done") {
+      const skipped = job.empty_pages.length ? " (pages without readable text were skipped: " + job.empty_pages.join(", ") + ")" : "";
+      toast("Added “" + job.source + "”" + skipped);
+      tracked.delete(id);
+      finished = true;
+    } else if (job.status === "error") {
+      toast("“" + job.source + "” could not be added. " + job.message, "error");
+      tracked.delete(id);
+      finished = true;
+    }
+  }
+  activeJobs = all.filter((job) => tracked.has(job.id)).reverse();  // oldest first
+  renderJobs();
+  if (finished) {
+    try { await refreshDocs(); } catch (err) { toast(err.message, "error"); }
+  }
+  if (tracked.size) schedulePoll(1500);
+}
+
 async function uploadFiles(fileList) {
   const files = [...fileList];
   if (!files.length || uploading) return;
   uploading = true;
-  $("progress").hidden = false;
   updateControls();
-  renderDocs();
-  const added = [];
   const problems = [];
-  for (const [i, file] of files.entries()) {
-    $("progressTitle").textContent = "Adding " + (i + 1) + " of " + files.length + "...";
-    $("progressFile").textContent = file.name + " (large files can take a minute)";
+  for (const file of files) {
     if (!file.name.toLowerCase().endsWith(".pdf")) {
       problems.push(file.name + ": not a PDF file");
       continue;
     }
+    reading = file.name;
+    renderJobs();
     try {
       const body = new FormData();
       body.append("file", file);
-      const result = await api("/documents", { method: "POST", body });
-      added.push(result.source);
-      if (result.empty_pages.length) {
-        problems.push(result.source + ": added, but pages without readable text were skipped (" + result.empty_pages.join(", ") + ")");
-      }
+      const job = await api("/documents", { method: "POST", body });
+      tracked.set(job.id, job.source);
+      activeJobs = [...activeJobs, job];
     } catch (err) {
       problems.push(file.name + ": " + err.message);
     }
   }
+  reading = null;
   uploading = false;
-  $("progress").hidden = true;
-  try { await refreshDocs(); } catch (err) { problems.push(err.message); }
-  if (added.length) toast(added.length === 1 ? "Added “" + added[0] + "”" : "Added " + added.length + " documents");
-  if (problems.length) toast(problems.join("\n"), "error");
+  renderJobs();
   updateControls();
-  if (added.length && isMobile()) setDrawer(false);
+  if (problems.length) toast(problems.join("\n"), "error");
+  if (tracked.size) schedulePoll(0);
+}
+
+async function resumeJobs() {
+  // After a page refresh, pick up files that are still being indexed.
+  const all = await api("/jobs");
+  for (const job of all) if (job.status === "queued" || job.status === "running") tracked.set(job.id, job.source);
+  if (tracked.size) schedulePoll(0);
 }
 
 $("addBtn").addEventListener("click", () => $("file").click());
@@ -840,6 +924,7 @@ updateControls();
 if (/^https?:$/.test(location.protocol)) {
   refreshDocs()
     .then(() => { if (!hasDocs && isMobile()) setDrawer(true); })
+    .then(resumeJobs)
     .catch((err) => toast(err.message, "error"));
 } else {
   $("notServed").hidden = false;

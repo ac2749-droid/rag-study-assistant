@@ -18,7 +18,9 @@ def test_health_reports_chunk_count(client, loaded_store):
 
 def test_documents_lists_files_with_chunk_and_page_counts(client, loaded_store):
     # loaded_store has chunks on pages 3, 4 and 6 of deck.pdf
-    assert client.get("/documents").json() == [{"source": "deck.pdf", "chunks": 3, "pages": 3}]
+    assert client.get("/documents").json() == [
+        {"source": "deck.pdf", "chunks": 3, "pages": 3, "complete": True, "expected_chunks": 3}
+    ]
 
 
 def test_documents_are_sorted_by_name_ignoring_case(client, fake_gemini):
@@ -34,7 +36,9 @@ def test_pages_counts_distinct_pages_not_chunks(client, fake_gemini):
         Chunk("long.pdf", 2, 0, "getopt c"),
     ]
     store.add_chunks(chunks, "long.pdf")
-    assert client.get("/documents").json() == [{"source": "long.pdf", "chunks": 3, "pages": 2}]
+    assert client.get("/documents").json() == [
+        {"source": "long.pdf", "chunks": 3, "pages": 2, "complete": True, "expected_chunks": 3}
+    ]
 
 
 def test_ask_returns_answer_with_deduplicated_sources(client, loaded_store, fake_gemini):
@@ -134,10 +138,10 @@ def test_reingesting_a_file_replaces_its_old_chunks(loaded_store):
 
 
 def test_ingest_failure_keeps_existing_data(loaded_store, monkeypatch):
-    def fail(texts, task_type):
+    def fail(texts, on_progress=None, on_batch=None):
         raise gemini.GeminiError("boom")
 
-    monkeypatch.setattr(gemini, "embed_texts", fail)
+    monkeypatch.setattr(gemini, "embed_documents", fail)
     with pytest.raises(gemini.GeminiError):
         store.add_chunks([Chunk("deck.pdf", 1, 0, "new text")], "deck.pdf")
     assert store.get_collection().count() == 3  # untouched

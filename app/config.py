@@ -16,6 +16,7 @@ class Settings:
     max_upload_mb: int  # largest PDF accepted through the web page
     gemini_api_key: str | None
     gemini_timeout: float  # seconds to wait for any single Gemini request before giving up on it
+    embed_texts_per_minute: int  # indexing pace; Gemini's free plan allows 100/min. 0 = no pacing (paid)
     embed_model: str
     chat_model: str
     chat_fallback_models: tuple[str, ...]  # tried in order if chat_model is rate-limited or overloaded
@@ -36,6 +37,7 @@ def get_settings() -> Settings:
         max_upload_mb=int(os.getenv("MAX_UPLOAD_MB", "50")),
         gemini_api_key=os.getenv("GEMINI_API_KEY") or None,
         gemini_timeout=float(os.getenv("GEMINI_TIMEOUT_SECONDS", "45")),
+        embed_texts_per_minute=int(os.getenv("EMBED_TEXTS_PER_MINUTE", "90")),
         embed_model=os.getenv("EMBED_MODEL", "gemini-embedding-001"),
         chat_model=os.getenv("CHAT_MODEL", "gemini-3.5-flash"),
         chat_fallback_models=tuple(
@@ -45,9 +47,11 @@ def get_settings() -> Settings:
         ),
         chroma_path=Path(os.getenv("CHROMA_PATH", PROJECT_ROOT / "chroma_db")),
         collection_name=os.getenv("COLLECTION_NAME", "lecture_notes"),
-        chunk_size=int(os.getenv("CHUNK_SIZE", "800")),
-        chunk_overlap=int(os.getenv("CHUNK_OVERLAP", "100")),
-        page_limit=int(os.getenv("PAGE_LIMIT", "1200")),
+        # Larger sections mean fewer embeddings per document, which matters because Gemini's free plan
+        # allows only ~1,000 per day (a 370-page manual needs 439 at these sizes, 1,015 at 800/1200).
+        chunk_size=int(os.getenv("CHUNK_SIZE", "1500")),
+        chunk_overlap=int(os.getenv("CHUNK_OVERLAP", "150")),
+        page_limit=int(os.getenv("PAGE_LIMIT", "2400")),
         per_source_k=int(os.getenv("PER_SOURCE_K", "2")),
         top_k=int(os.getenv("TOP_K", "8")),
         max_distance=float(os.getenv("MAX_DISTANCE", "0.38")),
@@ -56,6 +60,8 @@ def get_settings() -> Settings:
         raise ValueError("CHUNK_OVERLAP must be >= 0 and smaller than CHUNK_SIZE")
     if settings.gemini_timeout <= 0:
         raise ValueError("GEMINI_TIMEOUT_SECONDS must be positive")
+    if settings.embed_texts_per_minute < 0:
+        raise ValueError("EMBED_TEXTS_PER_MINUTE must be 0 (no pacing) or a positive number")
     if settings.top_k < 1 or settings.per_source_k < 1:
         raise ValueError("TOP_K and PER_SOURCE_K must be at least 1")
     return settings
