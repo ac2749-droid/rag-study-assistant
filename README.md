@@ -1,5 +1,9 @@
 # Anthony's Study Assistant
 
+[![CI](https://github.com/ac2749-droid/rag-study-assistant/actions/workflows/ci.yml/badge.svg)](https://github.com/ac2749-droid/rag-study-assistant/actions/workflows/ci.yml)
+![Python 3.12](https://img.shields.io/badge/python-3.12-blue)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+
 Ask questions about your own documents in plain English and get answers with the pages they came from.
 It runs on your own computer, for two kinds of use:
 
